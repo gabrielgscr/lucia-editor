@@ -1,32 +1,46 @@
-# Lucia Editor (initial version)
+# Lucia Editor
 
-Lucia Editor is a desktop editor built with Java Swing for Lucia language projects.
+Lucia Editor is a desktop IDE-like editor built with Java Swing for Lucia language projects.
 
 ## Features
 
-- Open a project folder and browse `.lucia` files.
-- Create Lucia files and folders from the project tree.
-- Edit and save Lucia files.
-- Multiple editor tabs.
-- Toolbar with common actions and icons.
-- Toolbar controls for editor font size (`A-` and `A+`).
-- Menu icons for common actions.
-- Lucia syntax highlighting using RSyntaxTextArea.
-- Run the current Lucia file using Lucia CLI from the sibling `lucia` project.
-- Compile the current Lucia file (`compile --save`).
-- Run Lucia tests (`pytest -q`) from the editor.
-- Run custom Lucia CLI commands from the editor.
-- Internationalized UI (Spanish and English), extensible for more languages.
+- Project explorer for `.lucia` files and folders.
+- Create new Lucia files and folders from the tree context menu.
+- Multi-tab editing with close buttons on tabs.
+- Fixed top tab bar (scroll is applied to text area only).
+- Save current file and save all open files.
+- Toolbar with icons and quick actions.
+- Theme support: light/dark mode toggle.
+- Theme-aware icon color updates.
+- Configurable editor font size (`A-`, `A+`, `Ctrl+-`, `Ctrl+=`, `Ctrl+0`).
+- Internationalized UI (Spanish/English), extensible to more locales.
+- Help menu with a rich About dialog.
+- Recent projects menu with persistence and “clear recent projects”.
 
-Font size can be changed from:
+## Lucia syntax highlighting
 
-- `View -> Decrease/Increase/Reset font size`
-- Toolbar buttons `A-` and `A+`
+- Custom `RSyntaxTextArea` token maker (`text/lucia`).
+- English Lucia keywords and core language tokens.
+- Built-in global functions highlighted (`print`, `len`, `input`, `str`, `type_of`, `abs`, `min`, `max`, `pow`, `round`, `floor`, `ceil`, `random`).
+- Built-in data types highlighted (`int`, `float`, `string`, `bool`, `void`, `any`, `list`, `dict`).
+- Boolean and `null` literals differentiated.
+- Single-line (`//`) and block (`/* ... */`) comments highlighted, including multiline state continuation.
+- Custom light/dark color palettes tuned for better token contrast.
+
+## CLI integration
+
+- Run current Lucia file.
+- Compile current Lucia file with `--save`.
+- Run Lucia tests (`pytest -q`).
+- Execute custom Lucia CLI commands.
+- Interactive stdin support in output panel for programs using `input(...)`.
+- Unbuffered Python output handling so prompts appear in correct order.
 
 ## UI stack
 
-- FlatLaf for a modern Swing theme.
-- Ikonli FontAwesome5 pack for toolbar icons.
+- FlatLaf (light and dark themes).
+- RSyntaxTextArea.
+- Ikonli FontAwesome5 icons.
 
 ## Requirements
 
@@ -43,28 +57,26 @@ If you use VS Code installed via Snap and see linker errors like:
 
 `/snap/core20/.../libpthread.so.0: undefined symbol: __libc_pthread_init`
 
-use the launcher script:
+use:
 
 ```bash
 ./run-editor.sh
 ```
 
-If you see `No X11 DISPLAY variable was set`, run from a desktop session terminal (with GUI enabled), not from a headless shell.
+If you see `No X11 DISPLAY variable was set`, run from a desktop session terminal (GUI-enabled), not from a headless shell.
 
-## Configure Lucia CLI integration
+## Configure Lucia integration
 
 From the app menu: `Tools -> Settings`.
 
-- **Lucia project root**: folder where `main.py` of Lucia lives (for example `../lucia`).
+- **Lucia project root**: folder where Lucia `main.py` lives (for example `../lucia`).
 - **Python executable**: executable path, for example `.venv/bin/python`.
 
-The app executes:
+The editor executes commands from the configured Lucia root, for example:
 
 ```bash
 <python_executable> main.py run <current_file>
 ```
-
-using the Lucia project root as working directory.
 
 ## Add a new language
 
