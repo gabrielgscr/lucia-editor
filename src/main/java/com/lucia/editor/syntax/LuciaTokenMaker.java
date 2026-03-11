@@ -11,6 +11,13 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
 
     private static final Set<String> BOOLEAN_LITERALS = Set.of("true", "false");
 
+    private static boolean isSeparator(char c) {
+        return c == '{' || c == '}'
+                || c == '(' || c == ')'
+                || c == '[' || c == ']'
+                || c == ',' || c == ';';
+    }
+
     @Override
     public TokenMap getWordsToHighlight() {
         TokenMap tokenMap = new TokenMap();
@@ -114,7 +121,8 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
                     } else if (RSyntaxUtilities.isLetter(c) || c == '_') {
                         tokenType = TokenTypes.IDENTIFIER;
                     } else {
-                        addToken(array, i, i, TokenTypes.OPERATOR, startOffset + i - offset);
+                        int symbolType = isSeparator(c) ? TokenTypes.SEPARATOR : TokenTypes.OPERATOR;
+                        addToken(array, i, i, symbolType, startOffset + i - offset);
                         tokenType = TokenTypes.NULL;
                     }
                     break;

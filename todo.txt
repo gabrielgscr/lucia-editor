@@ -1,0 +1,55 @@
+Diagnostics en tiempo real (errores/warnings)
+Subrayado en el editor con línea/columna.
+Panel de problemas navegable.
+Click en error para saltar a la línea.
+Muchísimo valor para productividad.
+
+
+Autocompletado básico de Lucia -> Listo
+Keywords, built-ins, tipos y métodos comunes.
+Sugerencias contextuales simples (. para métodos de string/list/dict).
+Puede empezar sin parser profundo.
+
+
+Go to Definition / Find References
+Navegación entre funciones, clases y variables.
+Muy útil cuando crezcan los proyectos.
+
+
+Formateador de código (Format Document)
+Indentación consistente, espacios, saltos de línea.
+Ideal con atajo (Ctrl+Shift+F) y opción al guardar.
+
+
+
+Búsqueda global del proyecto
+Buscar/reemplazar en archivos .lucia.
+Con filtros por carpeta y previews.
+
+
+
+Terminal integrada en panel inferior
+Para ejecutar comandos manuales sin salir del editor.
+Complementa muy bien tus acciones Run/Compile/Test.
+
+
+
+Breakpoints y ejecución paso a paso (a futuro)
+Si Lucia runtime lo permite, debug visual (step in/out, variables).
+Es una funcionalidad “premium” para aprendizaje.
+
+
+Paleta de comandos (Command Palette)
+Ctrl+Shift+P con todas las acciones del editor.
+Escalable conforme crecen features.
+
+
+Autosave + restore de sesión
+Guardado automático configurable.
+Reabrir pestañas y proyecto previo al iniciar.
+
+
+Gestión de snippets
+Plantillas para func, class, if/else, for, etc.
+Acelera muchísimo escritura repetitiva.
+
