@@ -33,6 +33,9 @@ public class EditorFactory {
 
     private boolean darkTheme;
     private int editorFontSize;
+    private boolean autocompleteEnabled;
+    private int autocompleteDelayMs;
+    private boolean snippetsInAutocomplete;
     private CompletionProvider completionProvider;
     private final SnippetManager snippetManager;
     private final Map<RSyntaxTextArea, AutoCompletion> completionsByEditor;
@@ -40,6 +43,9 @@ public class EditorFactory {
     public EditorFactory(boolean darkTheme, int editorFontSize, SnippetManager snippetManager) {
         this.darkTheme          = darkTheme;
         this.editorFontSize     = editorFontSize;
+        this.autocompleteEnabled = true;
+        this.autocompleteDelayMs = 250;
+        this.snippetsInAutocomplete = true;
         this.snippetManager     = snippetManager;
         this.completionsByEditor = new WeakHashMap<>();
         this.completionProvider = buildCompletionProvider();
@@ -60,6 +66,18 @@ public class EditorFactory {
 
     public void setEditorFontSize(int editorFontSize) {
         this.editorFontSize = editorFontSize;
+    }
+
+    public void setAutocompleteEnabled(boolean autocompleteEnabled) {
+        this.autocompleteEnabled = autocompleteEnabled;
+    }
+
+    public void setAutocompleteDelayMs(int autocompleteDelayMs) {
+        this.autocompleteDelayMs = Math.max(50, autocompleteDelayMs);
+    }
+
+    public void setSnippetsInAutocomplete(boolean snippetsInAutocomplete) {
+        this.snippetsInAutocomplete = snippetsInAutocomplete;
     }
 
     public void refreshSnippetCompletions() {
@@ -137,8 +155,8 @@ public class EditorFactory {
 
     private void installAutoCompletion(RSyntaxTextArea editor) {
         AutoCompletion completion = new AutoCompletion(completionProvider);
-        completion.setAutoActivationEnabled(true);
-        completion.setAutoActivationDelay(250);
+        completion.setAutoActivationEnabled(autocompleteEnabled);
+        completion.setAutoActivationDelay(autocompleteDelayMs);
         completion.setParameterAssistanceEnabled(true);
         completion.setShowDescWindow(true);
         completion.setTriggerKey(KeyStroke.getKeyStroke("control SPACE"));
@@ -176,16 +194,18 @@ public class EditorFactory {
         provider.addCompletion(new TemplateCompletion(provider, "ceil",    "ceil(value)",     "ceil(${value})"));
         provider.addCompletion(new TemplateCompletion(provider, "random",  "random(min, max)","random(${min}, ${max})"));
 
-        try {
-            List<SnippetDefinition> snippets = snippetManager.getSnippets();
-            for (SnippetDefinition snippet : snippets) {
-            provider.addCompletion(new ShorthandCompletion(provider,
-                snippet.prefix(),
-                snippet.description().isBlank() ? snippet.prefix() : snippet.description(),
-                snippet.template()));
+        if (snippetsInAutocomplete) {
+            try {
+                List<SnippetDefinition> snippets = snippetManager.getSnippets();
+                for (SnippetDefinition snippet : snippets) {
+                    provider.addCompletion(new ShorthandCompletion(provider,
+                            snippet.prefix(),
+                            snippet.description().isBlank() ? snippet.prefix() : snippet.description(),
+                            snippet.template()));
+                }
+            } catch (IOException ex) {
+                // Fallback to no custom snippets if storage cannot be read.
             }
-        } catch (IOException ex) {
-            // Fallback to no custom snippets if storage cannot be read.
         }
 
         provider.setAutoActivationRules(true, null);

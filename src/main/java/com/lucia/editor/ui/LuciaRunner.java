@@ -57,12 +57,16 @@ public class LuciaRunner {
 
     /** Runs the given file with the Lucia interpreter. */
     public void run(Path file) {
-        executeCli("run", false, file);
+        executeCli("run", false, file,
+                config.isShowGeneratedCode(),
+                config.getDefaultTarget());
     }
 
     /** Compiles the given file and saves output. */
     public void compile(Path file) {
-        executeCli("compile", true, file);
+        executeCli("compile", true, file,
+                config.isShowGeneratedCode(),
+                config.getDefaultTarget());
     }
 
     /** Runs the project's test suite via pytest. */
@@ -102,7 +106,8 @@ public class LuciaRunner {
 
     // ── private ────────────────────────────────────────────────────────
 
-    private void executeCli(String command, boolean saveOutput, Path file) {
+    private void executeCli(String command, boolean saveOutput, Path file,
+                            boolean showGeneratedCode, String target) {
         Path luciaRoot   = config.getLuciaProjectRoot();
         String pythonExec = config.getPythonExecutable();
         if (!Files.exists(luciaRoot.resolve("main.py"))) {
@@ -116,14 +121,23 @@ public class LuciaRunner {
         SwingWorker<Void, String> worker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
-                ProcessBuilder builder;
+                List<String> cmd = new ArrayList<>();
+                cmd.add(pythonExec);
+                cmd.add("main.py");
+                cmd.add(command);
+                cmd.add(file.toAbsolutePath().toString());
                 if (saveOutput) {
-                    builder = new ProcessBuilder(pythonExec, "main.py", command,
-                            file.toAbsolutePath().toString(), "--save");
-                } else {
-                    builder = new ProcessBuilder(pythonExec, "main.py", command,
-                            file.toAbsolutePath().toString());
+                    cmd.add("--save");
                 }
+                if (showGeneratedCode) {
+                    cmd.add("--show-python");
+                }
+                if (target != null && !target.isBlank()) {
+                    cmd.add("--target");
+                    cmd.add(target);
+                }
+
+                ProcessBuilder builder = new ProcessBuilder(cmd);
                 builder.directory(luciaRoot.toFile());
                 builder.redirectErrorStream(true);
                 builder.environment().put("PYTHONUNBUFFERED", "1");

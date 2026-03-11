@@ -137,11 +137,47 @@ Open: `Tools -> Settings`
 
 - **Lucia project root**: folder containing Lucia `main.py` (for example `../lucia`).
 - **Python executable**: interpreter path (for example `.venv/bin/python`).
+- **UI settings**:
+	- Language (`en`/`es`)
+	- Theme (`light`/`dark`)
+	- Editor font size
+- **Editor behavior**:
+	- Format on save
+	- Word wrap
+	- Tab size
+	- Insert spaces instead of tabs
+	- Show line numbers
+	- Highlight current line
+	- Show whitespace
+- **Autocomplete**:
+	- Enable/disable autocomplete
+	- Autocomplete delay (ms)
+	- Include/exclude snippets in autocomplete
+- **Diagnostics**:
+	- Enable/disable real-time diagnostics
+	- Diagnostics debounce delay (ms)
+	- Diagnostics underline thickness
+	- Auto-open Problems panel on diagnostics
+- **Run/Compile defaults**:
+	- Save before run/compile
+	- Show generated code
+	- Clear output before run
+	- Default target (`python` / `javascript`)
+- **Terminal**:
+	- Auto-start integrated terminal
+	- Optional custom shell path
+	- Startup directory mode (`project` / `home`)
 
 The editor executes commands from that configured root, for example:
 
 ```bash
 <python_executable> main.py run <current_file>
+```
+
+With run/compile target configuration enabled, the editor also forwards the selected target:
+
+```bash
+<python_executable> main.py run <current_file> --target <python|javascript>
 ```
 
 ## Add More UI Languages

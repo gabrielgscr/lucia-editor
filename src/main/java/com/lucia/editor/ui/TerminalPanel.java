@@ -28,6 +28,9 @@ public class TerminalPanel extends JPanel {
     private volatile Process shellProcess;
     private volatile PrintWriter shellStdin;
     private Path projectRoot;
+    private boolean autoStart;
+    private String shellPath;
+    private String workingDirectoryMode;
 
     public TerminalPanel() {
         super(new BorderLayout());
@@ -55,10 +58,30 @@ public class TerminalPanel extends JPanel {
 
         add(new JScrollPane(terminalOutput), BorderLayout.CENTER);
         add(inputBar, BorderLayout.SOUTH);
+
+        this.autoStart = false;
+        this.shellPath = "";
+        this.workingDirectoryMode = "project";
     }
 
     public void setProjectRoot(Path projectRoot) {
         this.projectRoot = projectRoot;
+    }
+
+    public void setAutoStart(boolean autoStart) {
+        this.autoStart = autoStart;
+    }
+
+    public boolean isAutoStart() {
+        return autoStart;
+    }
+
+    public void setShellPath(String shellPath) {
+        this.shellPath = shellPath == null ? "" : shellPath.trim();
+    }
+
+    public void setWorkingDirectoryMode(String mode) {
+        this.workingDirectoryMode = "home".equalsIgnoreCase(mode) ? "home" : "project";
     }
 
     /** Requests focus on the input field; starts the shell if not running. */
@@ -81,15 +104,22 @@ public class TerminalPanel extends JPanel {
         }
         shellStdin = null;
 
-        String shell = System.getenv("SHELL");
+        String shell = shellPath;
+        if (shell == null || shell.isBlank()) {
+            shell = System.getenv("SHELL");
+        }
         if (shell == null || shell.isBlank()) {
             shell = "/bin/bash";
         }
 
         try {
             ProcessBuilder pb = new ProcessBuilder(shell, "-i");
-            Path startDir = projectRoot != null ? projectRoot
-                    : Path.of(System.getProperty("user.home"));
+            Path startDir;
+            if ("home".equals(workingDirectoryMode)) {
+                startDir = Path.of(System.getProperty("user.home"));
+            } else {
+                startDir = projectRoot != null ? projectRoot : Path.of(System.getProperty("user.home"));
+            }
             pb.directory(startDir.toFile());
             pb.redirectErrorStream(true);
             pb.environment().put("TERM", "dumb");

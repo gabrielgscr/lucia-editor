@@ -80,6 +80,7 @@ public class LuciaDiagnosticsService {
     private final AtomicLong sequence;
     private final Map<Path, ScheduledFuture<?>> pending;
     private final Map<Path, Long> latestTokenByFile;
+    private volatile int debounceMs;
 
     public LuciaDiagnosticsService(EditorConfig config, Listener listener) {
         this.config = config;
@@ -92,6 +93,11 @@ public class LuciaDiagnosticsService {
         this.sequence = new AtomicLong(0L);
         this.pending = new ConcurrentHashMap<>();
         this.latestTokenByFile = new ConcurrentHashMap<>();
+        this.debounceMs = Math.max(100, config.getDiagnosticsDebounceMs());
+    }
+
+    public void setDebounceMs(int debounceMs) {
+        this.debounceMs = Math.max(100, debounceMs);
     }
 
     public void requestAnalysis(Path file, String sourceText) {
@@ -114,7 +120,7 @@ public class LuciaDiagnosticsService {
                 return;
             }
             SwingUtilities.invokeLater(() -> listener.onDiagnostics(normalized, diagnostics));
-        }, 450, TimeUnit.MILLISECONDS);
+        }, debounceMs, TimeUnit.MILLISECONDS);
         pending.put(normalized, future);
     }
 

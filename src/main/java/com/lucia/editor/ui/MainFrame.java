@@ -95,12 +95,14 @@ public class MainFrame extends JFrame {
     private int editorFontSize;
     private boolean darkTheme;
     private final Map<Path, RSyntaxTextArea> openEditors;
+    private final Map<Path, RTextScrollPane> openScrollPanes;
     private final Map<Component, Path> tabToPath;
     private final Map<RSyntaxTextArea, DocumentListener> diagnosticsListeners;
     private final Map<RSyntaxTextArea, List<Object>> diagnosticHighlightTags;
     private final Map<Path, List<LuciaDiagnostic>> diagnosticsByFile;
     private JTabbedPane bottomTabs;
     private ProblemsPanel problemsPanel;
+    private int diagnosticsUnderlineRows;
 
     public MainFrame() {
         this.config         = new EditorConfig();
@@ -108,6 +110,7 @@ public class MainFrame extends JFrame {
                 Math.min(MAX_EDITOR_FONT_SIZE, config.getEditorFontSize()));
         this.darkTheme      = config.isDarkTheme();
         this.openEditors    = new LinkedHashMap<>();
+        this.openScrollPanes = new LinkedHashMap<>();
         this.tabToPath      = new HashMap<>();
 
         EditorFactory.registerLuciaSyntax();
@@ -128,6 +131,17 @@ public class MainFrame extends JFrame {
         this.diagnosticsListeners = new HashMap<>();
         this.diagnosticHighlightTags = new HashMap<>();
         this.diagnosticsByFile = new HashMap<>();
+        this.diagnosticsUnderlineRows = config.getDiagnosticsUnderlineRows();
+
+        I18n.setLocale(Locale.forLanguageTag(config.getLanguageTag()));
+        editorFactory.setAutocompleteEnabled(config.isAutocompleteEnabled());
+        editorFactory.setAutocompleteDelayMs(config.getAutocompleteDelayMs());
+        editorFactory.setSnippetsInAutocomplete(config.isSnippetsInAutocomplete());
+        editorFactory.refreshSnippetCompletions();
+        diagnosticsService.setDebounceMs(config.getDiagnosticsDebounceMs());
+        terminalPanel.setAutoStart(config.isTerminalAutoStart());
+        terminalPanel.setShellPath(config.getTerminalShellPath());
+        terminalPanel.setWorkingDirectoryMode(config.getTerminalWorkingDirectoryMode());
 
         buildUi();
         refreshTexts();
@@ -179,6 +193,9 @@ public class MainFrame extends JFrame {
                 terminalPanel.ensureShellStarted();
             }
         });
+        if (terminalPanel.isAutoStart()) {
+            terminalPanel.ensureShellStarted();
+        }
 
         JSplitPane rightSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
                 editorTabs, bottomTabs);
@@ -309,7 +326,7 @@ public class MainFrame extends JFrame {
         bar.addSeparator();
         bar.add(createToolbarButton(I18n.tr("menu.runCurrent"),    FontAwesomeSolid.PLAY,         this::runCurrentFile));
         bar.add(createToolbarButton(I18n.tr("menu.compileCurrent"),FontAwesomeSolid.COG,          this::compileCurrentFile));
-        bar.add(createToolbarButton(I18n.tr("menu.runTests"),      FontAwesomeSolid.VIAL,         runner::runTests));
+        bar.add(createToolbarButton(I18n.tr("menu.runTests"),      FontAwesomeSolid.VIAL,         this::runTestsCommand));
         bar.add(createToolbarButton(I18n.tr("menu.formatDocument"),FontAwesomeSolid.MAGIC,        this::formatCurrentDocument));
         bar.addSeparator();
         bar.add(createToolbarButton(I18n.tr("menu.fontDecrease"),  FontAwesomeSolid.SEARCH_MINUS, () -> changeEditorFontSize(-1), "A-"));
@@ -387,8 +404,8 @@ public class MainFrame extends JFrame {
         runMenu.add(runCurrentItem);
         runMenu.add(compileCurrentItem);
         runMenu.addSeparator();
-        runMenu.add(createMenuItem("menu.runTests",      FontAwesomeSolid.VIAL,     runner::runTests));
-        runMenu.add(createMenuItem("menu.runCustom",     FontAwesomeSolid.TERMINAL, runner::runCustom));
+        runMenu.add(createMenuItem("menu.runTests",      FontAwesomeSolid.VIAL,     this::runTestsCommand));
+        runMenu.add(createMenuItem("menu.runCustom",     FontAwesomeSolid.TERMINAL, this::runCustomCommand));
         runMenu.addSeparator();
         JMenuItem openTerminal = createMenuItem("menu.openTerminal",
                 FontAwesomeSolid.TERMINAL, this::focusTerminal);
@@ -558,11 +575,13 @@ public class MainFrame extends JFrame {
             RSyntaxTextArea editor = new RSyntaxTextArea(30, 100);
             editorFactory.configure(editor);
             editor.setText(content);
+            applyEditorPreferences(editor);
             attachDiagnostics(editor, normalized);
             requestDiagnostics(normalized, editor);
 
             RTextScrollPane editorScroll = new RTextScrollPane(editor);
             editorScroll.setFoldIndicatorEnabled(true);
+            editorScroll.setLineNumbersEnabled(config.isShowLineNumbers());
             String tabTitle = normalized.getFileName().toString();
             editorTabs.addTab(tabTitle, editorScroll);
 
@@ -573,6 +592,7 @@ public class MainFrame extends JFrame {
                         new ClosableTabHeader(editorTabs, tabTitle, () -> closeTab(editorScroll)));
             }
             openEditors.put(normalized, editor);
+            openScrollPanes.put(normalized, editorScroll);
             tabToPath.put(editorScroll, normalized);
             editorTabs.setSelectedComponent(editorScroll);
             currentFile = normalized;
@@ -618,6 +638,7 @@ public class MainFrame extends JFrame {
         Path path = tabToPath.remove(tabContent);
         if (path != null) {
             RSyntaxTextArea editor = openEditors.remove(path);
+            openScrollPanes.remove(path);
             detachDiagnostics(editor);
             clearDiagnosticsFor(path);
         }
@@ -658,6 +679,10 @@ public class MainFrame extends JFrame {
         if (file == null || editor == null) {
             return;
         }
+        if (!config.isDiagnosticsEnabled()) {
+            onDiagnosticsReady(file, List.of());
+            return;
+        }
         diagnosticsService.requestAnalysis(file, editor.getText());
     }
 
@@ -672,6 +697,12 @@ public class MainFrame extends JFrame {
 
         problemsPanel.setDiagnostics(normalized, diagnosticsByFile.get(normalized));
         updateProblemsTabTitle();
+
+        if (config.isDiagnosticsAutoOpenProblems()
+                && diagnosticsByFile.get(normalized) != null
+                && !diagnosticsByFile.get(normalized).isEmpty()) {
+            openProblemsPanel();
+        }
     }
 
     private void clearDiagnosticsFor(Path file) {
@@ -700,8 +731,8 @@ public class MainFrame extends JFrame {
                     end = Math.min(start + 1, editor.getDocument().getLength());
                 }
                 var painter = diagnostic.severity() == LuciaDiagnosticSeverity.WARNING
-                        ? DiagnosticsUnderlinePainter.WARNING
-                        : DiagnosticsUnderlinePainter.ERROR;
+                    ? new DiagnosticsUnderlinePainter(new Color(0xC99700), diagnosticsUnderlineRows)
+                    : new DiagnosticsUnderlinePainter(new Color(0xD73A49), diagnosticsUnderlineRows);
                 Object tag = editor.getHighlighter().addHighlight(start, end, painter);
                 tags.add(tag);
             } catch (BadLocationException ignored) {
@@ -856,15 +887,39 @@ public class MainFrame extends JFrame {
     private void runCurrentFile() {
         Path file = getCurrentFileFromTab();
         if (file == null) { showError(I18n.tr("error.noFile")); return; }
-        saveCurrentFile();
+        if (config.isClearOutputBeforeRun()) {
+            output.setText("");
+        }
+        if (config.isSaveBeforeRun()) {
+            saveCurrentFile();
+        }
         runner.run(file);
     }
 
     private void compileCurrentFile() {
         Path file = getCurrentFileFromTab();
         if (file == null) { showError(I18n.tr("error.noFile")); return; }
-        saveCurrentFile();
+        if (config.isClearOutputBeforeRun()) {
+            output.setText("");
+        }
+        if (config.isSaveBeforeRun()) {
+            saveCurrentFile();
+        }
         runner.compile(file);
+    }
+
+    private void runTestsCommand() {
+        if (config.isClearOutputBeforeRun()) {
+            output.setText("");
+        }
+        runner.runTests();
+    }
+
+    private void runCustomCommand() {
+        if (config.isClearOutputBeforeRun()) {
+            output.setText("");
+        }
+        runner.runCustom();
     }
 
     private void focusTerminal() {
@@ -1093,7 +1148,75 @@ public class MainFrame extends JFrame {
     private void openSettings() {
         SettingsDialog dialog = new SettingsDialog(this, config);
         dialog.setVisible(true);
-        if (dialog.isSaved()) appendOutput(I18n.tr("log.settingsSaved"));
+        if (dialog.isSaved()) {
+            applyConfigurationFromSettings();
+            appendOutput(I18n.tr("log.settingsSaved"));
+        }
+    }
+
+    private void applyConfigurationFromSettings() {
+        Locale locale = Locale.forLanguageTag(config.getLanguageTag());
+        if (!I18n.getLocale().equals(locale)) {
+            I18n.setLocale(locale);
+            searchSupport.resetDialogs();
+        }
+
+        int configuredFont = Math.max(MIN_EDITOR_FONT_SIZE,
+                Math.min(MAX_EDITOR_FONT_SIZE, config.getEditorFontSize()));
+        if (configuredFont != editorFontSize) {
+            editorFontSize = configuredFont;
+        }
+        editorFactory.setEditorFontSize(editorFontSize);
+
+        boolean configuredDark = config.isDarkTheme();
+        if (configuredDark != darkTheme) {
+            toggleTheme(configuredDark);
+        }
+
+        editorFactory.setAutocompleteEnabled(config.isAutocompleteEnabled());
+        editorFactory.setAutocompleteDelayMs(config.getAutocompleteDelayMs());
+        editorFactory.setSnippetsInAutocomplete(config.isSnippetsInAutocomplete());
+        editorFactory.refreshSnippetCompletions();
+
+        diagnosticsService.setDebounceMs(config.getDiagnosticsDebounceMs());
+        diagnosticsUnderlineRows = config.getDiagnosticsUnderlineRows();
+
+        terminalPanel.setAutoStart(config.isTerminalAutoStart());
+        terminalPanel.setShellPath(config.getTerminalShellPath());
+        terminalPanel.setWorkingDirectoryMode(config.getTerminalWorkingDirectoryMode());
+
+        openEditors.values().forEach(editor -> {
+            editorFactory.applyTheme(editor);
+            editorFactory.applyFontSize(editor);
+            applyEditorPreferences(editor);
+            Path path = findPathForEditor(editor);
+            if (path != null) {
+                requestDiagnostics(path, editor);
+            }
+        });
+        for (Map.Entry<Path, RTextScrollPane> entry : openScrollPanes.entrySet()) {
+            entry.getValue().setLineNumbersEnabled(config.isShowLineNumbers());
+        }
+
+        refreshTexts();
+    }
+
+    private Path findPathForEditor(RSyntaxTextArea editor) {
+        for (Map.Entry<Path, RSyntaxTextArea> entry : openEditors.entrySet()) {
+            if (entry.getValue() == editor) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    private void applyEditorPreferences(RSyntaxTextArea editor) {
+        editor.setTabSize(config.getTabSize());
+        editor.setTabsEmulated(config.isInsertSpaces());
+        editor.setLineWrap(config.isWordWrap());
+        editor.setWrapStyleWord(config.isWordWrap());
+        editor.setHighlightCurrentLine(config.isHighlightCurrentLine());
+        editor.setWhitespaceVisible(config.isShowWhitespace());
     }
 
     private void openSnippetManager() {
@@ -1172,6 +1295,7 @@ public class MainFrame extends JFrame {
 
     private void changeLanguage(Locale locale) {
         I18n.setLocale(locale);
+        config.setLanguageTag(locale.toLanguageTag());
         searchSupport.resetDialogs();
         refreshTexts();
     }
@@ -1225,15 +1349,12 @@ public class MainFrame extends JFrame {
 
     private static final class DiagnosticsUnderlinePainter extends LayeredHighlighter.LayerPainter {
 
-        private static final DiagnosticsUnderlinePainter ERROR =
-                new DiagnosticsUnderlinePainter(new Color(0xD73A49));
-        private static final DiagnosticsUnderlinePainter WARNING =
-                new DiagnosticsUnderlinePainter(new Color(0xC99700));
-
         private final Color color;
+        private final int rows;
 
-        private DiagnosticsUnderlinePainter(Color color) {
+        private DiagnosticsUnderlinePainter(Color color, int rows) {
             this.color = color;
+            this.rows = Math.max(1, rows);
         }
 
         @Override
@@ -1260,8 +1381,8 @@ public class MainFrame extends JFrame {
                 endX = startX + 2;
             }
 
-            // Draw two stacked zig-zag rows to make the underline easier to spot.
-            for (int row = 0; row < 2; row++) {
+            // Draw configurable stacked zig-zag rows to make the underline easier to spot.
+            for (int row = 0; row < rows; row++) {
                 boolean up = true;
                 int rowY = y + row;
                 for (int x = startX; x < endX; x += 2) {
