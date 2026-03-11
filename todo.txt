@@ -16,7 +16,7 @@ Navegación entre funciones, clases y variables.
 Muy útil cuando crezcan los proyectos.
 
 
-Formateador de código (Format Document)
+Formateador de código (Format Document) -> Listo
 Indentación consistente, espacios, saltos de línea.
 Ideal con atajo (Ctrl+Shift+F) y opción al guardar.
 
@@ -28,7 +28,7 @@ Con filtros por carpeta y previews.
 
 
 
-Terminal integrada en panel inferior
+Terminal integrada en panel inferior  ->Listo
 Para ejecutar comandos manuales sin salir del editor.
 Complementa muy bien tus acciones Run/Compile/Test.
 

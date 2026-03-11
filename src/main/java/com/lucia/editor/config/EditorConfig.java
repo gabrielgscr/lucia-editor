@@ -13,6 +13,7 @@ public final class EditorConfig {
     private static final String KEY_PYTHON_EXEC = "python.exec";
     private static final String KEY_EDITOR_FONT_SIZE = "editor.font.size";
     private static final String KEY_DARK_THEME = "ui.dark.theme";
+    private static final String KEY_FORMAT_ON_SAVE = "editor.format.on.save";
     private static final String KEY_RECENT_PROJECT_PREFIX = "recent.project.";
     private static final int MAX_RECENT_PROJECTS = 8;
 
@@ -53,6 +54,14 @@ public final class EditorConfig {
 
     public void setDarkTheme(boolean dark) {
         preferences.putBoolean(KEY_DARK_THEME, dark);
+    }
+
+    public boolean isFormatOnSave() {
+        return preferences.getBoolean(KEY_FORMAT_ON_SAVE, false);
+    }
+
+    public void setFormatOnSave(boolean formatOnSave) {
+        preferences.putBoolean(KEY_FORMAT_ON_SAVE, formatOnSave);
     }
 
     public List<Path> getRecentProjects() {

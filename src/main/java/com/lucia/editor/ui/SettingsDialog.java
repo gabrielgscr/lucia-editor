@@ -7,6 +7,7 @@ import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.nio.file.Path;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -19,6 +20,7 @@ public class SettingsDialog extends JDialog {
     private final EditorConfig config;
     private final JTextField luciaRootField;
     private final JTextField pythonField;
+    private final JCheckBox formatOnSaveBox;
     private boolean saved;
 
     public SettingsDialog(Frame owner, EditorConfig config) {
@@ -26,6 +28,7 @@ public class SettingsDialog extends JDialog {
         this.config = config;
         this.luciaRootField = new JTextField(config.getLuciaProjectRoot().toString(), 30);
         this.pythonField = new JTextField(config.getPythonExecutable(), 30);
+        this.formatOnSaveBox = new JCheckBox(I18n.tr("settings.formatOnSave"), config.isFormatOnSave());
         this.saved = false;
 
         buildUi();
@@ -53,8 +56,12 @@ public class SettingsDialog extends JDialog {
         row2.add(new JLabel(I18n.tr("settings.pythonExec")));
         row2.add(pythonField);
 
+        JPanel row3 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        row3.add(formatOnSaveBox);
+
         form.add(row1);
         form.add(row2);
+        form.add(row3);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
 
@@ -97,6 +104,7 @@ public class SettingsDialog extends JDialog {
 
         config.setLuciaProjectRoot(Path.of(rootValue));
         config.setPythonExecutable(pythonValue);
+        config.setFormatOnSave(formatOnSaveBox.isSelected());
         saved = true;
         dispose();
     }

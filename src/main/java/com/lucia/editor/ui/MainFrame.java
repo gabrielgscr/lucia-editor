@@ -1,6 +1,7 @@
 package com.lucia.editor.ui;
 
 import com.lucia.editor.config.EditorConfig;
+import com.lucia.editor.format.LuciaFormatter;
 import com.lucia.editor.i18n.I18n;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -177,6 +178,10 @@ public class MainFrame extends JFrame {
         rootActionMap.put("fontReset", new AbstractAction() {
             @Override public void actionPerformed(ActionEvent e) { setEditorFontSize(DEFAULT_EDITOR_FONT_SIZE); }
         });
+        rootInputMap.put(KeyStroke.getKeyStroke("control shift F"), "formatDocument");
+        rootActionMap.put("formatDocument", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { formatCurrentDocument(); }
+        });
     }
 
     private JToolBar buildToolBar() {
@@ -194,6 +199,7 @@ public class MainFrame extends JFrame {
         bar.add(createToolbarButton(I18n.tr("menu.runCurrent"),    FontAwesomeSolid.PLAY,         this::runCurrentFile));
         bar.add(createToolbarButton(I18n.tr("menu.compileCurrent"),FontAwesomeSolid.COG,          this::compileCurrentFile));
         bar.add(createToolbarButton(I18n.tr("menu.runTests"),      FontAwesomeSolid.VIAL,         runner::runTests));
+        bar.add(createToolbarButton(I18n.tr("menu.formatDocument"),FontAwesomeSolid.MAGIC,        this::formatCurrentDocument));
         bar.addSeparator();
         bar.add(createToolbarButton(I18n.tr("menu.fontDecrease"),  FontAwesomeSolid.SEARCH_MINUS, () -> changeEditorFontSize(-1), "A-"));
         bar.add(createToolbarButton(I18n.tr("menu.fontIncrease"),  FontAwesomeSolid.SEARCH_PLUS,  () -> changeEditorFontSize(1),  "A+"));
@@ -284,6 +290,15 @@ public class MainFrame extends JFrame {
         viewMenu.add(darkModeItem);
 
         JMenu settingsMenu = new JMenu(I18n.tr("menu.tools"));
+        JMenuItem formatDocument = createMenuItem("menu.formatDocument",
+            FontAwesomeSolid.MAGIC, this::formatCurrentDocument);
+        formatDocument.setAccelerator(KeyStroke.getKeyStroke("control shift F"));
+        JCheckBoxMenuItem formatOnSaveItem = new JCheckBoxMenuItem(
+            I18n.tr("menu.formatOnSave"), config.isFormatOnSave());
+        formatOnSaveItem.addActionListener(e -> toggleFormatOnSave(formatOnSaveItem.isSelected()));
+        settingsMenu.add(formatDocument);
+        settingsMenu.add(formatOnSaveItem);
+        settingsMenu.addSeparator();
         settingsMenu.add(createMenuItem("menu.settings", FontAwesomeSolid.SLIDERS_H, this::openSettings));
 
         JMenu languageMenu = new JMenu(I18n.tr("menu.language"));
@@ -404,6 +419,7 @@ public class MainFrame extends JFrame {
         RSyntaxTextArea editor = getCurrentEditor();
         if (file == null || editor == null) { showError(I18n.tr("error.noFile")); return; }
         try {
+            maybeFormatOnSave(editor);
             Files.writeString(file, editor.getText(), StandardCharsets.UTF_8);
             appendOutput(I18n.tr("log.saved") + ": " + file);
         } catch (IOException ex) {
@@ -414,6 +430,7 @@ public class MainFrame extends JFrame {
     private void saveAllOpenFiles() {
         for (Map.Entry<Path, RSyntaxTextArea> entry : openEditors.entrySet()) {
             try {
+                maybeFormatOnSave(entry.getValue());
                 Files.writeString(entry.getKey(), entry.getValue().getText(), StandardCharsets.UTF_8);
             } catch (IOException ex) {
                 showError(I18n.tr("error.saveFile") + ": " + ex.getMessage());
@@ -454,6 +471,41 @@ public class MainFrame extends JFrame {
     private void focusTerminal() {
         bottomTabs.setSelectedIndex(1);
         terminalPanel.focusTerminal();
+    }
+
+    private void formatCurrentDocument() {
+        RSyntaxTextArea editor = getCurrentEditor();
+        if (editor == null) {
+            showError(I18n.tr("error.noFile"));
+            return;
+        }
+        boolean changed = formatEditor(editor);
+        appendOutput(changed ? I18n.tr("log.documentFormatted") : I18n.tr("log.documentAlreadyFormatted"));
+    }
+
+    private void maybeFormatOnSave(RSyntaxTextArea editor) {
+        if (config.isFormatOnSave()) {
+            formatEditor(editor);
+        }
+    }
+
+    private boolean formatEditor(RSyntaxTextArea editor) {
+        String original = editor.getText();
+        String formatted = LuciaFormatter.format(original);
+        if (formatted.equals(original)) {
+            return false;
+        }
+        int caret = Math.min(editor.getCaretPosition(), formatted.length());
+        editor.setText(formatted);
+        editor.setCaretPosition(caret);
+        return true;
+    }
+
+    private void toggleFormatOnSave(boolean enabled) {
+        config.setFormatOnSave(enabled);
+        appendOutput(enabled
+                ? I18n.tr("log.formatOnSaveEnabled")
+                : I18n.tr("log.formatOnSaveDisabled"));
     }
 
     // ── Tab / editor helpers ───────────────────────────────────────────
