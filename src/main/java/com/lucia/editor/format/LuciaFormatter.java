@@ -15,7 +15,7 @@ public final class LuciaFormatter {
             Pattern.compile("\\s*([+*/%])\\s*");
     private static final Pattern SPACE_AROUND_MINUS =
             Pattern.compile("(?<=[\\w\\)\\]])\\s*-\\s*(?=[\\w\\(\\[])");
-        private static final Pattern SPACE_AROUND_IN =
+    private static final Pattern SPACE_AROUND_IN =
             Pattern.compile("\\bfor\\s*\\((.*?)\\bin\\b(.*?)\\)");
 
     private LuciaFormatter() {
@@ -93,6 +93,7 @@ public final class LuciaFormatter {
                     out.append(applySpacingRules(segment.toString()));
                     segment.setLength(0);
                 }
+                ensureRequiredSpaceBeforeString(out);
                 segment.append(c);
                 inString = true;
                 escaped = false;
@@ -107,6 +108,16 @@ public final class LuciaFormatter {
         }
 
         return out.toString().trim();
+    }
+
+    private static void ensureRequiredSpaceBeforeString(StringBuilder out) {
+        if (out.isEmpty()) {
+            return;
+        }
+        String current = out.toString();
+        if (current.matches(".*\\b(import|return|case)$")) {
+            out.append(' ');
+        }
     }
 
     private static String applySpacingRules(String segment) {
