@@ -15,6 +15,9 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 	- Folder filter.
 	- Regex and case-sensitive options.
 	- Result preview and jump-to-location.
+- 🩺 Real-time diagnostics (syntax/semantic) while typing with debounced background analysis.
+- 🚨 Problems panel with navigable entries (double click / `Enter`) and per-file counters.
+- 🛠️ Quick fixes (`Ctrl+.`) for common issues, including context menu action in Problems panel.
 - 🧭 Go to Definition / Find References (`F12`, `Shift+F12`) for:
 	- `func`
 	- `class`
@@ -58,12 +61,16 @@ On first run, the file is auto-created with default snippets (`func`, `class`, `
 ## Keyboard Shortcuts
 
 - `Ctrl+Shift+I`: Insert snippet picker
+- `Ctrl+Shift+G`: Global search in project
+- `F12`: Go to definition
+- `Shift+F12`: Find references
+- `Alt+P`: Open Problems panel
+- `Ctrl+.`: Apply quick fix (selected problem or first problem in current file)
 
 ## Stack
 
 - `FlatLaf`
 - `RSyntaxTextArea`
-	- Insert snippet from picker (`Ctrl+Shift+I`)
 - `Ikonli FontAwesome5`
 
 ## RSyntaxTextArea Ecosystem Usage
@@ -93,6 +100,13 @@ On first run, the file is auto-created with default snippets (`func`, `class`, `
 - `RSTAUI Custom Global Search UI`
 	- Project-wide `.lucia` search/replace dialog with filters and previews.
 	- Integration reference: `src/main/java/com/lucia/editor/ui/GlobalSearchDialog.java`
+- `Real-time Diagnostics`
+	- Runs Lucia analysis in the background and returns structured diagnostics.
+	- Paints warning/error underlines and feeds the Problems panel.
+	- Integration references:
+		- `src/main/java/com/lucia/editor/ui/diagnostics/LuciaDiagnosticsService.java`
+		- `src/main/java/com/lucia/editor/ui/diagnostics/ProblemsPanel.java`
+		- `src/main/java/com/lucia/editor/ui/MainFrame.java`
 
 ## Requirements
 

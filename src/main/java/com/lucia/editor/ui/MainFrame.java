@@ -5,11 +5,18 @@ import com.lucia.editor.format.LuciaFormatter;
 import com.lucia.editor.i18n.I18n;
 import com.lucia.editor.snippets.SnippetDefinition;
 import com.lucia.editor.snippets.SnippetManager;
+import com.lucia.editor.ui.diagnostics.LuciaDiagnostic;
+import com.lucia.editor.ui.diagnostics.LuciaDiagnosticSeverity;
+import com.lucia.editor.ui.diagnostics.LuciaDiagnosticsService;
+import com.lucia.editor.ui.diagnostics.ProblemsPanel;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Rectangle;
+import java.awt.Shape;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -44,10 +51,16 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JList;
 import javax.swing.KeyStroke;
+import javax.swing.text.Document;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.LayeredHighlighter;
+import javax.swing.text.JTextComponent;
+import javax.swing.text.Position;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rtextarea.RTextScrollPane;
 import org.kordamp.ikonli.Ikon;
@@ -68,6 +81,7 @@ public class MainFrame extends JFrame {
     private final EditorSearchSupport searchSupport;
     private final LuciaSymbolNavigator symbolNavigator;
     private final SnippetManager snippetManager;
+    private final LuciaDiagnosticsService diagnosticsService;
     private GlobalSearchDialog globalSearchDialog;
 
     private Path projectRoot;
@@ -82,7 +96,11 @@ public class MainFrame extends JFrame {
     private boolean darkTheme;
     private final Map<Path, RSyntaxTextArea> openEditors;
     private final Map<Component, Path> tabToPath;
+    private final Map<RSyntaxTextArea, DocumentListener> diagnosticsListeners;
+    private final Map<RSyntaxTextArea, List<Object>> diagnosticHighlightTags;
+    private final Map<Path, List<LuciaDiagnostic>> diagnosticsByFile;
     private JTabbedPane bottomTabs;
+    private ProblemsPanel problemsPanel;
 
     public MainFrame() {
         this.config         = new EditorConfig();
@@ -104,8 +122,12 @@ public class MainFrame extends JFrame {
         this.searchSupport    = new EditorSearchSupport(this, this::getCurrentEditor,
                 this::appendOutput, this::showError);
         this.symbolNavigator  = new LuciaSymbolNavigator();
+        this.diagnosticsService = new LuciaDiagnosticsService(config, this::onDiagnosticsReady);
         this.runner           = new LuciaRunner(config, this, inputField,
                 this::appendOutput, this::appendOutputRaw);
+        this.diagnosticsListeners = new HashMap<>();
+        this.diagnosticHighlightTags = new HashMap<>();
+        this.diagnosticsByFile = new HashMap<>();
 
         buildUi();
         refreshTexts();
@@ -114,6 +136,7 @@ public class MainFrame extends JFrame {
             @Override
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 terminalPanel.destroyShell();
+                diagnosticsService.shutdown();
             }
         });
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -144,9 +167,12 @@ public class MainFrame extends JFrame {
         outputPanel.add(new JScrollPane(output), BorderLayout.CENTER);
         outputPanel.add(inputBar, BorderLayout.SOUTH);
 
+        problemsPanel = new ProblemsPanel(this::openProblem, this::applyQuickFixFromProblem);
+
         bottomTabs = new JTabbedPane(JTabbedPane.BOTTOM);
         bottomTabs.addTab(I18n.tr("tab.output"), outputPanel);
         bottomTabs.addTab(I18n.tr("tab.terminal"), terminalPanel);
+        bottomTabs.addTab(I18n.tr("tab.problems") + " (0)", problemsPanel);
         bottomTabs.putClientProperty("JTabbedPane.showTabSeparators", true);
         bottomTabs.addChangeListener(e -> {
             if (bottomTabs.getSelectedIndex() == 1) {
@@ -258,6 +284,14 @@ public class MainFrame extends JFrame {
         rootInputMap.put(KeyStroke.getKeyStroke("control shift I"), "insertSnippet");
         rootActionMap.put("insertSnippet", new AbstractAction() {
             @Override public void actionPerformed(ActionEvent e) { insertSnippet(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("alt P"), "openProblems");
+        rootActionMap.put("openProblems", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { openProblemsPanel(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control PERIOD"), "quickFix");
+        rootActionMap.put("quickFix", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { triggerQuickFix(); }
         });
     }
 
@@ -407,8 +441,13 @@ public class MainFrame extends JFrame {
         goToDefinitionItem.setAccelerator(KeyStroke.getKeyStroke("F12"));
         JMenuItem findReferencesItem = createMenuItem("menu.findReferences", FontAwesomeSolid.LIST_UL, this::findReferences);
         findReferencesItem.setAccelerator(KeyStroke.getKeyStroke("shift F12"));
+        JMenuItem openProblemsItem = createMenuItem("menu.openProblems", FontAwesomeSolid.EXCLAMATION_TRIANGLE,
+            this::openProblemsPanel);
+        openProblemsItem.setAccelerator(KeyStroke.getKeyStroke("alt P"));
         navigateMenu.add(goToDefinitionItem);
         navigateMenu.add(findReferencesItem);
+        navigateMenu.addSeparator();
+        navigateMenu.add(openProblemsItem);
 
         JMenu settingsMenu = new JMenu(I18n.tr("menu.tools"));
         JMenuItem formatDocument = createMenuItem("menu.formatDocument",
@@ -509,32 +548,35 @@ public class MainFrame extends JFrame {
     }
 
     private void openFile(Path path) {
-        if (openEditors.containsKey(path)) {
-            selectTabByPath(path);
+        Path normalized = path.toAbsolutePath().normalize();
+        if (openEditors.containsKey(normalized)) {
+            selectTabByPath(normalized);
             return;
         }
         try {
-            String content = Files.readString(path, StandardCharsets.UTF_8);
+            String content = Files.readString(normalized, StandardCharsets.UTF_8);
             RSyntaxTextArea editor = new RSyntaxTextArea(30, 100);
             editorFactory.configure(editor);
             editor.setText(content);
+            attachDiagnostics(editor, normalized);
+            requestDiagnostics(normalized, editor);
 
             RTextScrollPane editorScroll = new RTextScrollPane(editor);
             editorScroll.setFoldIndicatorEnabled(true);
-            String tabTitle = path.getFileName().toString();
+            String tabTitle = normalized.getFileName().toString();
             editorTabs.addTab(tabTitle, editorScroll);
 
             int tabIndex = editorTabs.indexOfComponent(editorScroll);
             if (tabIndex >= 0) {
-                editorTabs.setToolTipTextAt(tabIndex, path.toAbsolutePath().toString());
+                editorTabs.setToolTipTextAt(tabIndex, normalized.toString());
                 editorTabs.setTabComponentAt(tabIndex,
                         new ClosableTabHeader(editorTabs, tabTitle, () -> closeTab(editorScroll)));
             }
-            openEditors.put(path, editor);
-            tabToPath.put(editorScroll, path);
+            openEditors.put(normalized, editor);
+            tabToPath.put(editorScroll, normalized);
             editorTabs.setSelectedComponent(editorScroll);
-            currentFile = path;
-            setTitle(I18n.tr("app.title") + " - " + path.getFileName());
+            currentFile = normalized;
+            setTitle(I18n.tr("app.title") + " - " + normalized.getFileName());
             updateStatusBar();
         } catch (IOException ex) {
             showError(I18n.tr("error.openFile") + ": " + ex.getMessage());
@@ -574,9 +616,239 @@ public class MainFrame extends JFrame {
 
     private void closeTab(Component tabContent) {
         Path path = tabToPath.remove(tabContent);
-        if (path != null) openEditors.remove(path);
+        if (path != null) {
+            RSyntaxTextArea editor = openEditors.remove(path);
+            detachDiagnostics(editor);
+            clearDiagnosticsFor(path);
+        }
         editorTabs.remove(tabContent);
         onTabChanged();
+    }
+
+    private void attachDiagnostics(RSyntaxTextArea editor, Path file) {
+        if (editor == null || file == null) {
+            return;
+        }
+        DocumentListener listener = new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) { requestDiagnostics(file, editor); }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) { requestDiagnostics(file, editor); }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) { requestDiagnostics(file, editor); }
+        };
+        editor.getDocument().addDocumentListener(listener);
+        diagnosticsListeners.put(editor, listener);
+    }
+
+    private void detachDiagnostics(RSyntaxTextArea editor) {
+        if (editor == null) {
+            return;
+        }
+        DocumentListener listener = diagnosticsListeners.remove(editor);
+        if (listener != null) {
+            editor.getDocument().removeDocumentListener(listener);
+        }
+        clearEditorHighlights(editor);
+    }
+
+    private void requestDiagnostics(Path file, RSyntaxTextArea editor) {
+        if (file == null || editor == null) {
+            return;
+        }
+        diagnosticsService.requestAnalysis(file, editor.getText());
+    }
+
+    private void onDiagnosticsReady(Path file, List<LuciaDiagnostic> diagnostics) {
+        Path normalized = file.toAbsolutePath().normalize();
+        diagnosticsByFile.put(normalized, diagnostics == null ? List.of() : List.copyOf(diagnostics));
+
+        RSyntaxTextArea editor = openEditors.get(normalized);
+        if (editor != null) {
+            applyDiagnosticsToEditor(editor, diagnosticsByFile.get(normalized));
+        }
+
+        problemsPanel.setDiagnostics(normalized, diagnosticsByFile.get(normalized));
+        updateProblemsTabTitle();
+    }
+
+    private void clearDiagnosticsFor(Path file) {
+        if (file == null) {
+            return;
+        }
+        Path normalized = file.toAbsolutePath().normalize();
+        diagnosticsService.clear(normalized);
+        diagnosticsByFile.remove(normalized);
+        problemsPanel.clearFile(normalized);
+        updateProblemsTabTitle();
+    }
+
+    private void applyDiagnosticsToEditor(RSyntaxTextArea editor, List<LuciaDiagnostic> diagnostics) {
+        clearEditorHighlights(editor);
+        if (diagnostics == null || diagnostics.isEmpty()) {
+            return;
+        }
+
+        List<Object> tags = new java.util.ArrayList<>();
+        for (LuciaDiagnostic diagnostic : diagnostics) {
+            try {
+                int start = toOffset(editor, diagnostic.line(), diagnostic.column());
+                int end = Math.min(start + Math.max(1, diagnostic.length()), editor.getDocument().getLength());
+                if (end <= start) {
+                    end = Math.min(start + 1, editor.getDocument().getLength());
+                }
+                var painter = diagnostic.severity() == LuciaDiagnosticSeverity.WARNING
+                        ? DiagnosticsUnderlinePainter.WARNING
+                        : DiagnosticsUnderlinePainter.ERROR;
+                Object tag = editor.getHighlighter().addHighlight(start, end, painter);
+                tags.add(tag);
+            } catch (BadLocationException ignored) {
+                // Skip malformed locations from diagnostics.
+            }
+        }
+        diagnosticHighlightTags.put(editor, tags);
+    }
+
+    private void clearEditorHighlights(RSyntaxTextArea editor) {
+        List<Object> tags = diagnosticHighlightTags.remove(editor);
+        if (tags == null || tags.isEmpty()) {
+            return;
+        }
+        for (Object tag : tags) {
+            editor.getHighlighter().removeHighlight(tag);
+        }
+    }
+
+    private int toOffset(RSyntaxTextArea editor, int line, int column) throws BadLocationException {
+        int lineIndex = Math.max(0, line - 1);
+        int maxLine = Math.max(0, editor.getLineCount() - 1);
+        if (lineIndex > maxLine) {
+            lineIndex = maxLine;
+        }
+        int lineStart = editor.getLineStartOffset(lineIndex);
+        int lineEnd = editor.getLineEndOffset(lineIndex);
+        int colIndex = Math.max(0, column - 1);
+        return Math.min(lineStart + colIndex, Math.max(lineStart, lineEnd - 1));
+    }
+
+    private void openProblem(ProblemsPanel.ProblemEntry entry) {
+        if (entry == null) {
+            return;
+        }
+        LuciaDiagnostic d = entry.diagnostic();
+        openLocation(entry.file(), d.line(), d.column(), d.length(), "search.openResultError");
+    }
+
+    private void openProblemsPanel() {
+        if (bottomTabs == null || problemsPanel == null) {
+            return;
+        }
+        int index = bottomTabs.indexOfComponent(problemsPanel);
+        if (index >= 0) {
+            bottomTabs.setSelectedIndex(index);
+            problemsPanel.requestFocusInWindow();
+        }
+    }
+
+    private void triggerQuickFix() {
+        if (bottomTabs != null && bottomTabs.getSelectedComponent() == problemsPanel) {
+            ProblemsPanel.ProblemEntry selected = problemsPanel.getSelectedProblem();
+            if (selected == null) {
+                appendOutput(I18n.tr("log.quickFixNoProblem"));
+                return;
+            }
+            applyQuickFixFromProblem(selected);
+            return;
+        }
+
+        Path file = getCurrentFileFromTab();
+        if (file == null) {
+            appendOutput(I18n.tr("log.quickFixNoProblem"));
+            return;
+        }
+        List<LuciaDiagnostic> diagnostics = diagnosticsByFile.get(file.toAbsolutePath().normalize());
+        if (diagnostics == null || diagnostics.isEmpty()) {
+            appendOutput(I18n.tr("log.quickFixNoProblem"));
+            return;
+        }
+        applyQuickFixFromProblem(new ProblemsPanel.ProblemEntry(file, diagnostics.get(0)));
+    }
+
+    private void applyQuickFixFromProblem(ProblemsPanel.ProblemEntry entry) {
+        if (entry == null) {
+            return;
+        }
+        Path file = entry.file().toAbsolutePath().normalize();
+        RSyntaxTextArea editor = openEditors.get(file);
+        if (editor == null) {
+            openFile(file);
+            editor = openEditors.get(file);
+        }
+        if (editor == null) {
+            return;
+        }
+
+        String msg = entry.diagnostic().message().toLowerCase(Locale.ROOT);
+        if (msg.contains("undeclared variable") || msg.contains("unknown function") || msg.contains("not found")) {
+            insertTextAtLineStart(editor, entry.diagnostic().line(), "let ");
+            appendOutput(I18n.tr("log.quickFixApplied") + ": " + I18n.tr("quickfix.addLet"));
+            requestDiagnostics(file, editor);
+            return;
+        }
+        if (msg.contains("syntax") || msg.contains("expected") || msg.contains("line")) {
+            insertTextAtLineEnd(editor, entry.diagnostic().line(), ";");
+            appendOutput(I18n.tr("log.quickFixApplied") + ": " + I18n.tr("quickfix.addSemicolon"));
+            requestDiagnostics(file, editor);
+            return;
+        }
+
+        appendOutput(I18n.tr("log.quickFixNotAvailable"));
+        openProblem(entry);
+    }
+
+    private void insertTextAtLineStart(RSyntaxTextArea editor, int line, String text) {
+        try {
+            int lineIdx = Math.max(0, line - 1);
+            int start = editor.getLineStartOffset(Math.min(lineIdx, Math.max(0, editor.getLineCount() - 1)));
+            Document document = editor.getDocument();
+            String currentPrefix = editor.getText(start, Math.min(text.length(), document.getLength() - start));
+            if (currentPrefix.startsWith(text)) {
+                return;
+            }
+            document.insertString(start, text, null);
+        } catch (Exception ignored) {
+            // Ignore invalid insert ranges.
+        }
+    }
+
+    private void insertTextAtLineEnd(RSyntaxTextArea editor, int line, String text) {
+        try {
+            int lineIdx = Math.max(0, line - 1);
+            int safeLine = Math.min(lineIdx, Math.max(0, editor.getLineCount() - 1));
+            int end = editor.getLineEndOffset(safeLine);
+            int insertAt = Math.max(0, end - 1);
+            if (insertAt > 0) {
+                String previous = editor.getText(insertAt - 1, 1);
+                if (";".equals(previous)) {
+                    return;
+                }
+            }
+            editor.getDocument().insertString(insertAt, text, null);
+        } catch (Exception ignored) {
+            // Ignore invalid insert ranges.
+        }
+    }
+
+    private void updateProblemsTabTitle() {
+        if (bottomTabs == null) {
+            return;
+        }
+        int index = bottomTabs.indexOfComponent(problemsPanel);
+        if (index >= 0) {
+            bottomTabs.setTitleAt(index, I18n.tr("tab.problems") + " (" + problemsPanel.totalProblems() + ")");
+        }
     }
 
     // ── Run / compile ──────────────────────────────────────────────────
@@ -907,6 +1179,11 @@ public class MainFrame extends JFrame {
     private void refreshTexts() {
         onTabChanged();
         setJMenuBar(buildMenu());
+        if (bottomTabs != null) {
+            if (bottomTabs.getTabCount() > 0) bottomTabs.setTitleAt(0, I18n.tr("tab.output"));
+            if (bottomTabs.getTabCount() > 1) bottomTabs.setTitleAt(1, I18n.tr("tab.terminal"));
+            updateProblemsTabTitle();
+        }
         remove(toolBar);
         toolBar = buildToolBar();
         add(toolBar, BorderLayout.NORTH);
@@ -944,5 +1221,57 @@ public class MainFrame extends JFrame {
         JOptionPane.showMessageDialog(this, message, I18n.tr("dialog.error"),
                 JOptionPane.ERROR_MESSAGE);
         appendOutput(I18n.tr("log.error") + ": " + message);
+    }
+
+    private static final class DiagnosticsUnderlinePainter extends LayeredHighlighter.LayerPainter {
+
+        private static final DiagnosticsUnderlinePainter ERROR =
+                new DiagnosticsUnderlinePainter(new Color(0xD73A49));
+        private static final DiagnosticsUnderlinePainter WARNING =
+                new DiagnosticsUnderlinePainter(new Color(0xC99700));
+
+        private final Color color;
+
+        private DiagnosticsUnderlinePainter(Color color) {
+            this.color = color;
+        }
+
+        @Override
+        public void paint(Graphics g, int offs0, int offs1, Shape bounds, JTextComponent c) {
+            // Highlighter infrastructure calls paintLayer for layered highlights.
+        }
+
+        @Override
+        public Shape paintLayer(Graphics g, int offs0, int offs1, Shape bounds,
+                                JTextComponent c, javax.swing.text.View view) {
+            g.setColor(color);
+            Rectangle area;
+            try {
+                Shape shape = view.modelToView(offs0, Position.Bias.Forward, offs1, Position.Bias.Backward, bounds);
+                area = shape instanceof Rectangle ? (Rectangle) shape : shape.getBounds();
+            } catch (BadLocationException ex) {
+                return null;
+            }
+
+            int y = area.y + area.height - 3;
+            int startX = area.x;
+            int endX = area.x + area.width;
+            if (endX <= startX) {
+                endX = startX + 2;
+            }
+
+            // Draw two stacked zig-zag rows to make the underline easier to spot.
+            for (int row = 0; row < 2; row++) {
+                boolean up = true;
+                int rowY = y + row;
+                for (int x = startX; x < endX; x += 2) {
+                    int y1 = up ? rowY : rowY + 1;
+                    int y2 = up ? rowY + 1 : rowY;
+                    g.drawLine(x, y1, Math.min(x + 1, endX), y2);
+                    up = !up;
+                }
+            }
+            return area;
+        }
     }
 }
