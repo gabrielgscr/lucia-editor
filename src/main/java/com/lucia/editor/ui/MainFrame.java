@@ -43,6 +43,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
+import javax.swing.text.BadLocationException;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rtextarea.RTextScrollPane;
 import org.kordamp.ikonli.Ikon;
@@ -60,6 +61,8 @@ public class MainFrame extends JFrame {
     private final LuciaRunner runner;
     private final ProjectTreePanel projectTreePanel;
     private final TerminalPanel terminalPanel;
+    private final EditorSearchSupport searchSupport;
+    private GlobalSearchDialog globalSearchDialog;
 
     private Path projectRoot;
     private Path currentFile;
@@ -91,6 +94,8 @@ public class MainFrame extends JFrame {
         this.editorFactory    = new EditorFactory(darkTheme, editorFontSize);
         this.projectTreePanel = new ProjectTreePanel(this::openFile, this::appendOutput);
         this.terminalPanel    = new TerminalPanel();
+        this.searchSupport    = new EditorSearchSupport(this, this::getCurrentEditor,
+                this::appendOutput, this::showError);
         this.runner           = new LuciaRunner(config, this, inputField,
                 this::appendOutput, this::appendOutputRaw);
 
@@ -182,6 +187,58 @@ public class MainFrame extends JFrame {
         rootActionMap.put("formatDocument", new AbstractAction() {
             @Override public void actionPerformed(ActionEvent e) { formatCurrentDocument(); }
         });
+        rootInputMap.put(KeyStroke.getKeyStroke("control O"), "openProject");
+        rootActionMap.put("openProject", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { chooseProject(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control N"), "newFile");
+        rootActionMap.put("newFile", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { projectTreePanel.createLuciaFile(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control shift N"), "newFolder");
+        rootActionMap.put("newFolder", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { projectTreePanel.createFolder(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control shift S"), "saveAll");
+        rootActionMap.put("saveAll", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { saveAllOpenFiles(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control W"), "closeTab");
+        rootActionMap.put("closeTab", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { closeCurrentTab(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("F5"), "runCurrent");
+        rootActionMap.put("runCurrent", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { runCurrentFile(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("F6"), "compileCurrent");
+        rootActionMap.put("compileCurrent", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { compileCurrentFile(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control BACK_QUOTE"), "openTerminal");
+        rootActionMap.put("openTerminal", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { focusTerminal(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control F"), "findText");
+        rootActionMap.put("findText", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { searchSupport.showFindDialog(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control H"), "replaceText");
+        rootActionMap.put("replaceText", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { searchSupport.showReplaceDialog(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("F3"), "findNext");
+        rootActionMap.put("findNext", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { searchSupport.findNext(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("shift F3"), "findPrevious");
+        rootActionMap.put("findPrevious", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { searchSupport.findPrevious(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control shift G"), "globalSearch");
+        rootActionMap.put("globalSearch", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { showGlobalSearch(); }
+        });
     }
 
     private JToolBar buildToolBar() {
@@ -243,21 +300,38 @@ public class MainFrame extends JFrame {
         JMenuBar menuBar = new JMenuBar();
 
         JMenu fileMenu = new JMenu(I18n.tr("menu.file"));
-        fileMenu.add(createMenuItem("menu.openProject",    FontAwesomeSolid.FOLDER_OPEN, this::chooseProject));
+        JMenuItem openProjectItem = createMenuItem("menu.openProject", FontAwesomeSolid.FOLDER_OPEN, this::chooseProject);
+        openProjectItem.setAccelerator(KeyStroke.getKeyStroke("control O"));
+        JMenuItem newFileItem = createMenuItem("menu.newFile", FontAwesomeSolid.FILE_ALT, projectTreePanel::createLuciaFile);
+        newFileItem.setAccelerator(KeyStroke.getKeyStroke("control N"));
+        JMenuItem newFolderItem = createMenuItem("menu.newFolder", FontAwesomeSolid.FOLDER_PLUS, projectTreePanel::createFolder);
+        newFolderItem.setAccelerator(KeyStroke.getKeyStroke("control shift N"));
+        JMenuItem saveItem = createMenuItem("menu.save", FontAwesomeSolid.SAVE, this::saveCurrentFile);
+        saveItem.setAccelerator(KeyStroke.getKeyStroke("control S"));
+        JMenuItem saveAllItem = createMenuItem("menu.saveAll", FontAwesomeSolid.COPY, this::saveAllOpenFiles);
+        saveAllItem.setAccelerator(KeyStroke.getKeyStroke("control shift S"));
+        JMenuItem closeTabItem = createMenuItem("menu.closeTab", FontAwesomeSolid.TIMES, this::closeCurrentTab);
+        closeTabItem.setAccelerator(KeyStroke.getKeyStroke("control W"));
+
+        fileMenu.add(openProjectItem);
         fileMenu.add(buildRecentProjectsMenu());
-        fileMenu.add(createMenuItem("menu.newFile",        FontAwesomeSolid.FILE_ALT,    projectTreePanel::createLuciaFile));
-        fileMenu.add(createMenuItem("menu.newFolder",      FontAwesomeSolid.FOLDER_PLUS, projectTreePanel::createFolder));
-        fileMenu.add(createMenuItem("menu.refreshProject", FontAwesomeSolid.SYNC_ALT,    projectTreePanel::rebuildTree));
+        fileMenu.add(newFileItem);
+        fileMenu.add(newFolderItem);
+        fileMenu.add(createMenuItem("menu.refreshProject", FontAwesomeSolid.SYNC_ALT, projectTreePanel::rebuildTree));
         fileMenu.addSeparator();
-        fileMenu.add(createMenuItem("menu.save",           FontAwesomeSolid.SAVE,        this::saveCurrentFile));
-        fileMenu.add(createMenuItem("menu.saveAll",        FontAwesomeSolid.COPY,        this::saveAllOpenFiles));
-        fileMenu.add(createMenuItem("menu.closeTab",       FontAwesomeSolid.TIMES,       this::closeCurrentTab));
+        fileMenu.add(saveItem);
+        fileMenu.add(saveAllItem);
+        fileMenu.add(closeTabItem);
         fileMenu.addSeparator();
-        fileMenu.add(createMenuItem("menu.exit",           FontAwesomeSolid.SIGN_OUT_ALT, this::dispose));
+        fileMenu.add(createMenuItem("menu.exit", FontAwesomeSolid.SIGN_OUT_ALT, this::dispose));
 
         JMenu runMenu = new JMenu(I18n.tr("menu.run"));
-        runMenu.add(createMenuItem("menu.runCurrent",    FontAwesomeSolid.PLAY,     this::runCurrentFile));
-        runMenu.add(createMenuItem("menu.compileCurrent",FontAwesomeSolid.COG,      this::compileCurrentFile));
+        JMenuItem runCurrentItem = createMenuItem("menu.runCurrent", FontAwesomeSolid.PLAY, this::runCurrentFile);
+        runCurrentItem.setAccelerator(KeyStroke.getKeyStroke("F5"));
+        JMenuItem compileCurrentItem = createMenuItem("menu.compileCurrent", FontAwesomeSolid.COG, this::compileCurrentFile);
+        compileCurrentItem.setAccelerator(KeyStroke.getKeyStroke("F6"));
+        runMenu.add(runCurrentItem);
+        runMenu.add(compileCurrentItem);
         runMenu.addSeparator();
         runMenu.add(createMenuItem("menu.runTests",      FontAwesomeSolid.VIAL,     runner::runTests));
         runMenu.add(createMenuItem("menu.runCustom",     FontAwesomeSolid.TERMINAL, runner::runCustom));
@@ -289,6 +363,25 @@ public class MainFrame extends JFrame {
         viewMenu.addSeparator();
         viewMenu.add(darkModeItem);
 
+        JMenu searchMenu = new JMenu(I18n.tr("menu.search"));
+        JMenuItem findItem = createMenuItem("menu.find", FontAwesomeSolid.SEARCH, searchSupport::showFindDialog);
+        findItem.setAccelerator(KeyStroke.getKeyStroke("control F"));
+        JMenuItem replaceItem = createMenuItem("menu.replace", FontAwesomeSolid.EXCHANGE_ALT, searchSupport::showReplaceDialog);
+        replaceItem.setAccelerator(KeyStroke.getKeyStroke("control H"));
+        JMenuItem findNextItem = createMenuItem("menu.findNext", FontAwesomeSolid.CHEVRON_DOWN, searchSupport::findNext);
+        findNextItem.setAccelerator(KeyStroke.getKeyStroke("F3"));
+        JMenuItem findPreviousItem = createMenuItem("menu.findPrevious", FontAwesomeSolid.CHEVRON_UP, searchSupport::findPrevious);
+        findPreviousItem.setAccelerator(KeyStroke.getKeyStroke("shift F3"));
+        JMenuItem findInProjectItem = createMenuItem("menu.findInProject", FontAwesomeSolid.GLOBE, this::showGlobalSearch);
+        findInProjectItem.setAccelerator(KeyStroke.getKeyStroke("control shift G"));
+        searchMenu.add(findItem);
+        searchMenu.add(replaceItem);
+        searchMenu.addSeparator();
+        searchMenu.add(findNextItem);
+        searchMenu.add(findPreviousItem);
+        searchMenu.addSeparator();
+        searchMenu.add(findInProjectItem);
+
         JMenu settingsMenu = new JMenu(I18n.tr("menu.tools"));
         JMenuItem formatDocument = createMenuItem("menu.formatDocument",
             FontAwesomeSolid.MAGIC, this::formatCurrentDocument);
@@ -316,6 +409,7 @@ public class MainFrame extends JFrame {
         menuBar.add(fileMenu);
         menuBar.add(runMenu);
         menuBar.add(viewMenu);
+        menuBar.add(searchMenu);
         menuBar.add(settingsMenu);
         menuBar.add(languageMenu);
         menuBar.add(helpMenu);
@@ -473,6 +567,44 @@ public class MainFrame extends JFrame {
         terminalPanel.focusTerminal();
     }
 
+    private void showGlobalSearch() {
+        if (projectRoot == null) {
+            showError(I18n.tr("error.noProject"));
+            return;
+        }
+        if (globalSearchDialog == null) {
+            globalSearchDialog = new GlobalSearchDialog(this, () -> projectRoot,
+                    this::openSearchMatch, this::appendOutput);
+        }
+        globalSearchDialog.setVisible(true);
+    }
+
+    private void openSearchMatch(GlobalSearchDialog.SearchMatch match) {
+        if (match == null) {
+            return;
+        }
+        Path target = match.path().toAbsolutePath().normalize();
+        openFile(target);
+        RSyntaxTextArea editor = openEditors.get(target);
+        if (editor == null) {
+            return;
+        }
+        try {
+            int lineIndex = Math.max(0, match.line() - 1);
+            int colIndex = Math.max(0, match.column() - 1);
+            int lineStart = editor.getLineStartOffset(lineIndex);
+            int lineEnd = editor.getLineEndOffset(lineIndex);
+            int offset = Math.min(lineStart + colIndex, Math.max(lineStart, lineEnd - 1));
+            int end = Math.min(offset + Math.max(1, match.length()), editor.getDocument().getLength());
+            editor.setSelectionStart(offset);
+            editor.setSelectionEnd(end);
+            editor.setCaretPosition(offset);
+            editor.requestFocusInWindow();
+        } catch (BadLocationException ex) {
+            showError(I18n.tr("search.openResultError") + ": " + ex.getMessage());
+        }
+    }
+
     private void formatCurrentDocument() {
         RSyntaxTextArea editor = getCurrentEditor();
         if (editor == null) {
@@ -576,6 +708,7 @@ public class MainFrame extends JFrame {
             editorFactory.applyTheme(editor);
             editorFactory.applyFontSize(editor);
         });
+        searchSupport.refreshUi();
         refreshTexts();
         projectTreePanel.getTree().setCellRenderer(new FileTreeCellRenderer());
         SwingUtilities.updateComponentTreeUI(projectTreePanel.getTree());
@@ -583,6 +716,7 @@ public class MainFrame extends JFrame {
 
     private void changeLanguage(Locale locale) {
         I18n.setLocale(locale);
+        searchSupport.resetDialogs();
         refreshTexts();
     }
 
