@@ -27,6 +27,7 @@ import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.DefaultListModel;
 import javax.swing.JMenuItem;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -39,6 +40,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JToolBar;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JList;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -62,6 +64,7 @@ public class MainFrame extends JFrame {
     private final ProjectTreePanel projectTreePanel;
     private final TerminalPanel terminalPanel;
     private final EditorSearchSupport searchSupport;
+    private final LuciaSymbolNavigator symbolNavigator;
     private GlobalSearchDialog globalSearchDialog;
 
     private Path projectRoot;
@@ -96,6 +99,7 @@ public class MainFrame extends JFrame {
         this.terminalPanel    = new TerminalPanel();
         this.searchSupport    = new EditorSearchSupport(this, this::getCurrentEditor,
                 this::appendOutput, this::showError);
+        this.symbolNavigator  = new LuciaSymbolNavigator();
         this.runner           = new LuciaRunner(config, this, inputField,
                 this::appendOutput, this::appendOutputRaw);
 
@@ -238,6 +242,14 @@ public class MainFrame extends JFrame {
         rootInputMap.put(KeyStroke.getKeyStroke("control shift G"), "globalSearch");
         rootActionMap.put("globalSearch", new AbstractAction() {
             @Override public void actionPerformed(ActionEvent e) { showGlobalSearch(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("F12"), "goToDefinition");
+        rootActionMap.put("goToDefinition", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { goToDefinition(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("shift F12"), "findReferences");
+        rootActionMap.put("findReferences", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { findReferences(); }
         });
     }
 
@@ -382,6 +394,14 @@ public class MainFrame extends JFrame {
         searchMenu.addSeparator();
         searchMenu.add(findInProjectItem);
 
+        JMenu navigateMenu = new JMenu(I18n.tr("menu.navigate"));
+        JMenuItem goToDefinitionItem = createMenuItem("menu.goToDefinition", FontAwesomeSolid.SEARCH, this::goToDefinition);
+        goToDefinitionItem.setAccelerator(KeyStroke.getKeyStroke("F12"));
+        JMenuItem findReferencesItem = createMenuItem("menu.findReferences", FontAwesomeSolid.LIST_UL, this::findReferences);
+        findReferencesItem.setAccelerator(KeyStroke.getKeyStroke("shift F12"));
+        navigateMenu.add(goToDefinitionItem);
+        navigateMenu.add(findReferencesItem);
+
         JMenu settingsMenu = new JMenu(I18n.tr("menu.tools"));
         JMenuItem formatDocument = createMenuItem("menu.formatDocument",
             FontAwesomeSolid.MAGIC, this::formatCurrentDocument);
@@ -410,6 +430,7 @@ public class MainFrame extends JFrame {
         menuBar.add(runMenu);
         menuBar.add(viewMenu);
         menuBar.add(searchMenu);
+        menuBar.add(navigateMenu);
         menuBar.add(settingsMenu);
         menuBar.add(languageMenu);
         menuBar.add(helpMenu);
@@ -583,25 +604,122 @@ public class MainFrame extends JFrame {
         if (match == null) {
             return;
         }
-        Path target = match.path().toAbsolutePath().normalize();
+        openLocation(match.path(), match.line(), match.column(), match.length(), "search.openResultError");
+    }
+
+    private void goToDefinition() {
+        if (projectRoot == null) {
+            showError(I18n.tr("error.noProject"));
+            return;
+        }
+        RSyntaxTextArea editor = getCurrentEditor();
+        if (editor == null || getCurrentFileFromTab() == null) {
+            showError(I18n.tr("error.noFile"));
+            return;
+        }
+
+        String symbol = symbolNavigator.getSymbolAt(editor.getText(), editor.getCaretPosition());
+        if (symbol == null || symbol.isBlank()) {
+            showError(I18n.tr("nav.noSymbolAtCaret"));
+            return;
+        }
+
+        try {
+            List<LuciaSymbolNavigator.SymbolDefinition> definitions = symbolNavigator.findDefinitions(projectRoot, symbol);
+            if (definitions.isEmpty()) {
+                showError(I18n.tr("nav.definitionNotFound") + ": " + symbol);
+                return;
+            }
+
+            LuciaSymbolNavigator.SymbolDefinition selected = chooseFromList(
+                    definitions,
+                    I18n.tr("nav.definitionPickerTitle") + " (" + symbol + ")");
+            if (selected != null) {
+                LuciaSymbolNavigator.SymbolLocation location = selected.location();
+                openLocation(location.path(), location.line(), location.column(), location.length(), "nav.openDefinitionError");
+            }
+        } catch (IOException ex) {
+            showError(I18n.tr("nav.navigationError") + ": " + ex.getMessage());
+        }
+    }
+
+    private void findReferences() {
+        if (projectRoot == null) {
+            showError(I18n.tr("error.noProject"));
+            return;
+        }
+        RSyntaxTextArea editor = getCurrentEditor();
+        if (editor == null || getCurrentFileFromTab() == null) {
+            showError(I18n.tr("error.noFile"));
+            return;
+        }
+
+        String symbol = symbolNavigator.getSymbolAt(editor.getText(), editor.getCaretPosition());
+        if (symbol == null || symbol.isBlank()) {
+            showError(I18n.tr("nav.noSymbolAtCaret"));
+            return;
+        }
+
+        try {
+            List<LuciaSymbolNavigator.SymbolReference> references = symbolNavigator.findReferences(projectRoot, symbol);
+            if (references.isEmpty()) {
+                showError(I18n.tr("nav.referencesNotFound") + ": " + symbol);
+                return;
+            }
+
+            LuciaSymbolNavigator.SymbolReference selected = chooseFromList(
+                    references,
+                    I18n.tr("nav.referencesPickerTitle") + " (" + symbol + ")");
+            if (selected != null) {
+                LuciaSymbolNavigator.SymbolLocation location = selected.location();
+                openLocation(location.path(), location.line(), location.column(), location.length(), "nav.openReferenceError");
+            }
+            appendOutput(I18n.tr("log.referencesFound") + ": " + symbol + " = " + references.size());
+        } catch (IOException ex) {
+            showError(I18n.tr("nav.navigationError") + ": " + ex.getMessage());
+        }
+    }
+
+    private <T> T chooseFromList(List<T> items, String title) {
+        if (items == null || items.isEmpty()) {
+            return null;
+        }
+        DefaultListModel<T> model = new DefaultListModel<>();
+        for (T item : items) {
+            model.addElement(item);
+        }
+        JList<T> list = new JList<>(model);
+        list.setSelectedIndex(0);
+        JScrollPane scroller = new JScrollPane(list);
+        scroller.setPreferredSize(new Dimension(820, 360));
+        int result = JOptionPane.showConfirmDialog(this, scroller, title,
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) {
+            return null;
+        }
+        return list.getSelectedValue();
+    }
+
+    private void openLocation(Path targetPath, int line, int column, int length, String errorKey) {
+        Path target = targetPath.toAbsolutePath().normalize();
         openFile(target);
         RSyntaxTextArea editor = openEditors.get(target);
         if (editor == null) {
             return;
         }
         try {
-            int lineIndex = Math.max(0, match.line() - 1);
-            int colIndex = Math.max(0, match.column() - 1);
+            int lineIndex = Math.max(0, line - 1);
+            int colIndex = Math.max(0, column - 1);
             int lineStart = editor.getLineStartOffset(lineIndex);
             int lineEnd = editor.getLineEndOffset(lineIndex);
             int offset = Math.min(lineStart + colIndex, Math.max(lineStart, lineEnd - 1));
-            int end = Math.min(offset + Math.max(1, match.length()), editor.getDocument().getLength());
+            int end = Math.min(offset + Math.max(1, length), editor.getDocument().getLength());
             editor.setSelectionStart(offset);
             editor.setSelectionEnd(end);
             editor.setCaretPosition(offset);
             editor.requestFocusInWindow();
         } catch (BadLocationException ex) {
-            showError(I18n.tr("search.openResultError") + ": " + ex.getMessage());
+            showError(I18n.tr(errorKey) + ": " + ex.getMessage());
         }
     }
 

@@ -2,13 +2,15 @@ package com.lucia.editor.ui;
 
 import com.lucia.editor.i18n.I18n;
 import java.awt.BorderLayout;
+import java.awt.GridLayout;
 import java.awt.Dimension;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -41,9 +43,13 @@ public class GlobalSearchDialog extends JDialog {
     private final Consumer<String> onLog;
 
     private final JTextField queryField;
+    private final JTextField replacementField;
+    private final JTextField folderFilterField;
     private final JCheckBox caseSensitive;
     private final JCheckBox useRegex;
     private final JButton searchButton;
+    private final JButton replaceSelectedButton;
+    private final JButton replaceAllButton;
     private final JLabel resultLabel;
     private final JList<SearchMatch> resultList;
 
@@ -57,9 +63,13 @@ public class GlobalSearchDialog extends JDialog {
         this.onLog = onLog;
 
         queryField = new JTextField();
+        replacementField = new JTextField();
+        folderFilterField = new JTextField();
         caseSensitive = new JCheckBox(I18n.tr("search.caseSensitive"));
         useRegex = new JCheckBox(I18n.tr("search.useRegex"));
         searchButton = new JButton(I18n.tr("search.searchButton"));
+        replaceSelectedButton = new JButton(I18n.tr("search.replaceSelected"));
+        replaceAllButton = new JButton(I18n.tr("search.replaceAllButton"));
         resultLabel = new JLabel(I18n.tr("search.results") + ": 0");
         resultList = new JList<>();
 
@@ -70,16 +80,32 @@ public class GlobalSearchDialog extends JDialog {
         setLayout(new BorderLayout(8, 8));
         ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JPanel top = new JPanel(new BorderLayout(6, 6));
+        JPanel top = new JPanel(new GridLayout(3, 1, 0, 6));
+        JPanel queryRow = new JPanel(new BorderLayout(6, 6));
+        JPanel replacementRow = new JPanel(new BorderLayout(6, 6));
+        JPanel filterRow = new JPanel(new BorderLayout(6, 6));
+
         JPanel options = new JPanel(new BorderLayout(6, 6));
         JPanel checks = new JPanel();
+        JPanel actions = new JPanel();
         checks.add(caseSensitive);
         checks.add(useRegex);
+        actions.add(searchButton);
+        actions.add(replaceSelectedButton);
+        actions.add(replaceAllButton);
 
-        top.add(new JLabel(I18n.tr("search.query")), BorderLayout.WEST);
-        top.add(queryField, BorderLayout.CENTER);
+        queryRow.add(new JLabel(I18n.tr("search.query")), BorderLayout.WEST);
+        queryRow.add(queryField, BorderLayout.CENTER);
+        replacementRow.add(new JLabel(I18n.tr("search.replacement")), BorderLayout.WEST);
+        replacementRow.add(replacementField, BorderLayout.CENTER);
+        filterRow.add(new JLabel(I18n.tr("search.folderFilter")), BorderLayout.WEST);
+        filterRow.add(folderFilterField, BorderLayout.CENTER);
+
+        top.add(queryRow);
+        top.add(replacementRow);
+        top.add(filterRow);
         options.add(checks, BorderLayout.WEST);
-        options.add(searchButton, BorderLayout.EAST);
+        options.add(actions, BorderLayout.EAST);
 
         resultList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         resultList.setVisibleRowCount(16);
@@ -97,7 +123,11 @@ public class GlobalSearchDialog extends JDialog {
         setLocationRelativeTo(getOwner());
 
         queryField.addActionListener(e -> search());
+        replacementField.addActionListener(e -> replaceSelected());
+        folderFilterField.addActionListener(e -> search());
         searchButton.addActionListener(e -> search());
+        replaceSelectedButton.addActionListener(e -> replaceSelected());
+        replaceAllButton.addActionListener(e -> replaceAll());
         resultList.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -122,6 +152,8 @@ public class GlobalSearchDialog extends JDialog {
             caseSensitive.setText(I18n.tr("search.caseSensitive"));
             useRegex.setText(I18n.tr("search.useRegex"));
             searchButton.setText(I18n.tr("search.searchButton"));
+            replaceSelectedButton.setText(I18n.tr("search.replaceSelected"));
+            replaceAllButton.setText(I18n.tr("search.replaceAllButton"));
             resultLabel.setText(I18n.tr("search.results") + ": 0");
             SwingUtilities.invokeLater(queryField::requestFocusInWindow);
         }
@@ -129,43 +161,28 @@ public class GlobalSearchDialog extends JDialog {
     }
 
     private void search() {
-        Path root = projectRootSupplier.get();
-        if (root == null || !Files.isDirectory(root)) {
-            JOptionPane.showMessageDialog(this, I18n.tr("error.noProject"),
-                    I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        String query = queryField.getText();
-        if (query == null || query.isBlank()) {
-            JOptionPane.showMessageDialog(this, I18n.tr("search.emptyQuery"),
-                    I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        Pattern pattern;
-        try {
-            pattern = buildPattern(query);
-        } catch (PatternSyntaxException ex) {
-            JOptionPane.showMessageDialog(this,
-                    I18n.tr("search.invalidRegex") + ": " + ex.getDescription(),
-                    I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
+        SearchInput input = validateInputForSearch();
+        if (input == null) {
             return;
         }
 
         searchButton.setEnabled(false);
+        replaceAllButton.setEnabled(false);
+        replaceSelectedButton.setEnabled(false);
         resultList.setListData(new SearchMatch[0]);
         resultLabel.setText(I18n.tr("search.searching"));
 
         new SwingWorker<List<SearchMatch>, Void>() {
             @Override
             protected List<SearchMatch> doInBackground() throws Exception {
-                return findMatches(root, pattern);
+                return findMatches(input);
             }
 
             @Override
             protected void done() {
                 searchButton.setEnabled(true);
+                replaceAllButton.setEnabled(true);
+                replaceSelectedButton.setEnabled(true);
                 try {
                     List<SearchMatch> matches = get();
                     resultList.setListData(matches.toArray(SearchMatch[]::new));
@@ -182,6 +199,116 @@ public class GlobalSearchDialog extends JDialog {
         }.execute();
     }
 
+    private void replaceSelected() {
+        SearchMatch selected = resultList.getSelectedValue();
+        if (selected == null) {
+            JOptionPane.showMessageDialog(this, I18n.tr("search.noSelection"),
+                    I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        SearchInput input = validateInputForSearch();
+        if (input == null) {
+            return;
+        }
+
+        int decision = JOptionPane.showConfirmDialog(this,
+                I18n.tr("search.confirmReplaceSelected"),
+                I18n.tr("search.confirmTitle"),
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+        if (decision != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        try {
+            int replaced = replaceOneMatch(input, selected, replacementField.getText());
+            onLog.accept(I18n.tr("log.globalReplaceDone") + ": " + replaced);
+            search();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    I18n.tr("search.globalReplaceError") + ": " + ex.getMessage(),
+                    I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void replaceAll() {
+        SearchInput input = validateInputForSearch();
+        if (input == null) {
+            return;
+        }
+
+        int decision = JOptionPane.showConfirmDialog(this,
+                I18n.tr("search.confirmReplaceAll"),
+                I18n.tr("search.confirmTitle"),
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+        if (decision != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        String replacement = replacementField.getText();
+        String effectiveReplacement = input.useRegex()
+                ? replacement
+                : Matcher.quoteReplacement(replacement);
+
+        replaceAllButton.setEnabled(false);
+        replaceSelectedButton.setEnabled(false);
+        searchButton.setEnabled(false);
+        resultLabel.setText(I18n.tr("search.replacing"));
+
+        new SwingWorker<Integer, Void>() {
+            @Override
+            protected Integer doInBackground() throws Exception {
+                return replaceAllMatches(input, effectiveReplacement);
+            }
+
+            @Override
+            protected void done() {
+                replaceAllButton.setEnabled(true);
+                replaceSelectedButton.setEnabled(true);
+                searchButton.setEnabled(true);
+                try {
+                    int total = get();
+                    onLog.accept(I18n.tr("log.globalReplaceDone") + ": " + total);
+                    search();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(GlobalSearchDialog.this,
+                            I18n.tr("search.globalReplaceError") + ": " + ex.getMessage(),
+                            I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private SearchInput validateInputForSearch() {
+        Path root = projectRootSupplier.get();
+        if (root == null || !Files.isDirectory(root)) {
+            JOptionPane.showMessageDialog(this, I18n.tr("error.noProject"),
+                    I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        String query = queryField.getText();
+        if (query == null || query.isBlank()) {
+            JOptionPane.showMessageDialog(this, I18n.tr("search.emptyQuery"),
+                    I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        Pattern pattern;
+        try {
+            pattern = buildPattern(query);
+        } catch (PatternSyntaxException ex) {
+            JOptionPane.showMessageDialog(this,
+                    I18n.tr("search.invalidRegex") + ": " + ex.getDescription(),
+                    I18n.tr("dialog.error"), JOptionPane.ERROR_MESSAGE);
+            return null;
+        }
+
+        String folderFilter = normalizeFolderFilter(folderFilterField.getText());
+        return new SearchInput(root, pattern, useRegex.isSelected(), folderFilter);
+    }
+
     private Pattern buildPattern(String query) {
         int flags = caseSensitive.isSelected() ? Pattern.MULTILINE : Pattern.MULTILINE | Pattern.CASE_INSENSITIVE;
         if (useRegex.isSelected()) {
@@ -190,12 +317,13 @@ public class GlobalSearchDialog extends JDialog {
         return Pattern.compile(Pattern.quote(query), flags);
     }
 
-    private List<SearchMatch> findMatches(Path root, Pattern pattern) throws Exception {
+    private List<SearchMatch> findMatches(SearchInput input) throws Exception {
         List<SearchMatch> matches = new ArrayList<>();
-        try (var stream = Files.walk(root)) {
+        try (var stream = Files.walk(input.root())) {
             List<Path> luciaFiles = stream
                     .filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".lucia"))
+                    .filter(path -> matchesFolderFilter(input.root(), path, input.folderFilter()))
                     .sorted()
                     .toList();
 
@@ -203,16 +331,108 @@ public class GlobalSearchDialog extends JDialog {
                 List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
                 for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
                     String line = lines.get(lineIndex);
-                    Matcher matcher = pattern.matcher(line);
+                    Matcher matcher = input.pattern().matcher(line);
                     while (matcher.find()) {
                         int start = matcher.start() + 1;
                         int length = Math.max(1, matcher.end() - matcher.start());
-                        matches.add(new SearchMatch(file, lineIndex + 1, start, length, line));
+                        matches.add(new SearchMatch(input.root(), file, lineIndex + 1, start, length, line));
                     }
                 }
             }
         }
+        matches.sort(Comparator
+                .comparing((SearchMatch m) -> m.path().toString())
+                .thenComparingInt(SearchMatch::line)
+                .thenComparingInt(SearchMatch::column));
         return matches;
+    }
+
+    private int replaceAllMatches(SearchInput input, String replacement) throws Exception {
+        int totalReplacements = 0;
+        try (var stream = Files.walk(input.root())) {
+            List<Path> luciaFiles = stream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(".lucia"))
+                    .filter(path -> matchesFolderFilter(input.root(), path, input.folderFilter()))
+                    .sorted()
+                    .toList();
+
+            for (Path file : luciaFiles) {
+                String original = Files.readString(file, StandardCharsets.UTF_8);
+                Matcher matcher = input.pattern().matcher(original);
+                if (!matcher.find()) {
+                    continue;
+                }
+                matcher.reset();
+                String replaced = matcher.replaceAll(replacement);
+                int replacedInFile = countMatches(input.pattern(), original);
+                if (replacedInFile > 0) {
+                    Files.writeString(file, replaced, StandardCharsets.UTF_8);
+                    totalReplacements += replacedInFile;
+                }
+            }
+        }
+        return totalReplacements;
+    }
+
+    private int replaceOneMatch(SearchInput input, SearchMatch selected, String replacementRaw) throws Exception {
+        Path file = selected.path();
+        String original = Files.readString(file, StandardCharsets.UTF_8);
+        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        int lineIndex = selected.line() - 1;
+        if (lineIndex < 0 || lineIndex >= lines.size()) {
+            return 0;
+        }
+        String line = lines.get(lineIndex);
+        Matcher lineMatcher = input.pattern().matcher(line);
+        StringBuffer rewrittenLine = new StringBuffer();
+        boolean replaced = false;
+        while (lineMatcher.find()) {
+            if (lineMatcher.start() == selected.column() - 1) {
+                String replacement = input.useRegex()
+                        ? replacementRaw
+                        : Matcher.quoteReplacement(replacementRaw);
+                lineMatcher.appendReplacement(rewrittenLine, replacement);
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            return 0;
+        }
+        lineMatcher.appendTail(rewrittenLine);
+        lines.set(lineIndex, rewrittenLine.toString());
+        String updated = String.join(System.lineSeparator(), lines);
+        if (original.endsWith(System.lineSeparator())) {
+            updated += System.lineSeparator();
+        }
+        Files.writeString(file, updated, StandardCharsets.UTF_8);
+        return 1;
+    }
+
+    private int countMatches(Pattern pattern, String content) {
+        Matcher matcher = pattern.matcher(content);
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+        }
+        return count;
+    }
+
+    private String normalizeFolderFilter(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replace('\\', '/').toLowerCase(Locale.ROOT);
+    }
+
+    private boolean matchesFolderFilter(Path root, Path file, String filter) {
+        if (filter == null || filter.isBlank()) {
+            return true;
+        }
+        Path relative = root.toAbsolutePath().normalize().relativize(file.toAbsolutePath().normalize());
+        String rel = relative.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
+        return rel.contains(filter);
     }
 
     private void openSelectedResult() {
@@ -223,11 +443,17 @@ public class GlobalSearchDialog extends JDialog {
         onNavigate.accept(selected);
     }
 
-    public record SearchMatch(Path path, int line, int column, int length, String text) {
+    public record SearchMatch(Path root, Path path, int line, int column, int length, String text) {
         @Override
         public String toString() {
-            String trimmed = Objects.requireNonNullElse(text, "").trim();
-            return path + ":" + line + ":" + column + "  |  " + trimmed;
+            Path normalizedRoot = root.toAbsolutePath().normalize();
+            Path normalizedPath = path.toAbsolutePath().normalize();
+            String relative = normalizedRoot.relativize(normalizedPath).toString();
+            String preview = text == null ? "" : text.trim();
+            return relative + ":" + line + ":" + column + "  |  " + preview;
         }
+    }
+
+    private record SearchInput(Path root, Pattern pattern, boolean useRegex, String folderFilter) {
     }
 }
