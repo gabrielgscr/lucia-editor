@@ -3,6 +3,8 @@ package com.lucia.editor.ui;
 import com.lucia.editor.config.EditorConfig;
 import com.lucia.editor.format.LuciaFormatter;
 import com.lucia.editor.i18n.I18n;
+import com.lucia.editor.snippets.SnippetDefinition;
+import com.lucia.editor.snippets.SnippetManager;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -65,6 +67,7 @@ public class MainFrame extends JFrame {
     private final TerminalPanel terminalPanel;
     private final EditorSearchSupport searchSupport;
     private final LuciaSymbolNavigator symbolNavigator;
+    private final SnippetManager snippetManager;
     private GlobalSearchDialog globalSearchDialog;
 
     private Path projectRoot;
@@ -94,7 +97,8 @@ public class MainFrame extends JFrame {
         this.editorTabs       = new JTabbedPane();
         this.output           = new JTextArea(8, 100);
         this.inputField       = new JTextField();
-        this.editorFactory    = new EditorFactory(darkTheme, editorFontSize);
+        this.snippetManager   = new SnippetManager();
+        this.editorFactory    = new EditorFactory(darkTheme, editorFontSize, snippetManager);
         this.projectTreePanel = new ProjectTreePanel(this::openFile, this::appendOutput);
         this.terminalPanel    = new TerminalPanel();
         this.searchSupport    = new EditorSearchSupport(this, this::getCurrentEditor,
@@ -250,6 +254,10 @@ public class MainFrame extends JFrame {
         rootInputMap.put(KeyStroke.getKeyStroke("shift F12"), "findReferences");
         rootActionMap.put("findReferences", new AbstractAction() {
             @Override public void actionPerformed(ActionEvent e) { findReferences(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("control shift I"), "insertSnippet");
+        rootActionMap.put("insertSnippet", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { insertSnippet(); }
         });
     }
 
@@ -412,6 +420,10 @@ public class MainFrame extends JFrame {
         settingsMenu.add(formatDocument);
         settingsMenu.add(formatOnSaveItem);
         settingsMenu.addSeparator();
+        JMenuItem insertSnippetItem = createMenuItem("menu.insertSnippet", FontAwesomeSolid.PUZZLE_PIECE, this::insertSnippet);
+        insertSnippetItem.setAccelerator(KeyStroke.getKeyStroke("control shift I"));
+        settingsMenu.add(insertSnippetItem);
+        settingsMenu.add(createMenuItem("menu.manageSnippets", FontAwesomeSolid.CODE, this::openSnippetManager));
         settingsMenu.add(createMenuItem("menu.settings", FontAwesomeSolid.SLIDERS_H, this::openSettings));
 
         JMenu languageMenu = new JMenu(I18n.tr("menu.language"));
@@ -810,6 +822,60 @@ public class MainFrame extends JFrame {
         SettingsDialog dialog = new SettingsDialog(this, config);
         dialog.setVisible(true);
         if (dialog.isSaved()) appendOutput(I18n.tr("log.settingsSaved"));
+    }
+
+    private void openSnippetManager() {
+        SnippetManagerDialog dialog = new SnippetManagerDialog(this, snippetManager, () -> {
+            editorFactory.refreshSnippetCompletions();
+            appendOutput(I18n.tr("log.snippetsReloaded"));
+        });
+        dialog.setVisible(true);
+    }
+
+    private void insertSnippet() {
+        RSyntaxTextArea editor = getCurrentEditor();
+        if (editor == null) {
+            showError(I18n.tr("error.noFile"));
+            return;
+        }
+
+        try {
+            List<SnippetDefinition> snippets = snippetManager.getSnippets();
+            if (snippets.isEmpty()) {
+                showError(I18n.tr("snippets.noSnippets"));
+                return;
+            }
+
+            SnippetDefinition selected = chooseFromList(snippets, I18n.tr("snippets.insertTitle"));
+            if (selected == null) {
+                return;
+            }
+
+            insertSnippetTemplate(editor, selected.template());
+            appendOutput(I18n.tr("snippets.inserted") + ": " + selected.prefix());
+        } catch (IOException ex) {
+            showError(I18n.tr("snippets.loadError") + ": " + ex.getMessage());
+        }
+    }
+
+    private void insertSnippetTemplate(RSyntaxTextArea editor, String template) {
+        int selectionStart = editor.getSelectionStart();
+        int selectionEnd = editor.getSelectionEnd();
+        String safeTemplate = template == null ? "" : template;
+
+        int cursorMarker = safeTemplate.indexOf("${cursor}");
+        String insertion = cursorMarker >= 0
+                ? safeTemplate.replace("${cursor}", "")
+                : safeTemplate;
+
+        editor.replaceRange(insertion, selectionStart, selectionEnd);
+
+        int finalCaret = cursorMarker >= 0
+                ? selectionStart + cursorMarker
+                : selectionStart + insertion.length();
+        finalCaret = Math.min(finalCaret, editor.getDocument().getLength());
+        editor.setCaretPosition(finalCaret);
+        editor.requestFocusInWindow();
     }
 
     private void toggleTheme(boolean dark) {

@@ -1,9 +1,14 @@
 package com.lucia.editor.ui;
 
+import com.lucia.editor.snippets.SnippetDefinition;
+import com.lucia.editor.snippets.SnippetManager;
 import com.lucia.editor.syntax.LuciaTokenMaker;
 import java.awt.Color;
 import java.awt.Font;
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import javax.swing.KeyStroke;
 import org.fife.ui.autocomplete.AutoCompletion;
 import org.fife.ui.autocomplete.BasicCompletion;
@@ -28,11 +33,15 @@ public class EditorFactory {
 
     private boolean darkTheme;
     private int editorFontSize;
-    private final CompletionProvider completionProvider;
+    private CompletionProvider completionProvider;
+    private final SnippetManager snippetManager;
+    private final Map<RSyntaxTextArea, AutoCompletion> completionsByEditor;
 
-    public EditorFactory(boolean darkTheme, int editorFontSize) {
+    public EditorFactory(boolean darkTheme, int editorFontSize, SnippetManager snippetManager) {
         this.darkTheme          = darkTheme;
         this.editorFontSize     = editorFontSize;
+        this.snippetManager     = snippetManager;
+        this.completionsByEditor = new WeakHashMap<>();
         this.completionProvider = buildCompletionProvider();
     }
 
@@ -51,6 +60,13 @@ public class EditorFactory {
 
     public void setEditorFontSize(int editorFontSize) {
         this.editorFontSize = editorFontSize;
+    }
+
+    public void refreshSnippetCompletions() {
+        this.completionProvider = buildCompletionProvider();
+        for (AutoCompletion completion : completionsByEditor.values()) {
+            completion.setCompletionProvider(completionProvider);
+        }
     }
 
     /** Fully configures a freshly created editor. */
@@ -127,9 +143,10 @@ public class EditorFactory {
         completion.setShowDescWindow(true);
         completion.setTriggerKey(KeyStroke.getKeyStroke("control SPACE"));
         completion.install(editor);
+        completionsByEditor.put(editor, completion);
     }
 
-    private static CompletionProvider buildCompletionProvider() {
+    private CompletionProvider buildCompletionProvider() {
         DefaultCompletionProvider provider = new DefaultCompletionProvider();
 
         // Keywords
@@ -159,25 +176,17 @@ public class EditorFactory {
         provider.addCompletion(new TemplateCompletion(provider, "ceil",    "ceil(value)",     "ceil(${value})"));
         provider.addCompletion(new TemplateCompletion(provider, "random",  "random(min, max)","random(${min}, ${max})"));
 
-        // Code snippets
-        provider.addCompletion(new ShorthandCompletion(provider, "func",
-                "func name(...)",
-                "func ${name}(${params}): ${returnType} {\n\t${cursor}\n}"));
-        provider.addCompletion(new ShorthandCompletion(provider, "if",
-                "if (...) {...}",
-                "if (${condition}) {\n\t${cursor}\n}"));
-        provider.addCompletion(new ShorthandCompletion(provider, "ifelse",
-                "if (...) {...} else {...}",
-                "if (${condition}) {\n\t${cursor}\n} else {\n\t\n}"));
-        provider.addCompletion(new ShorthandCompletion(provider, "for",
-                "for (...) {...}",
-                "for (${init}; ${cond}; ${update}) {\n\t${cursor}\n}"));
-        provider.addCompletion(new ShorthandCompletion(provider, "while",
-                "while (...) {...}",
-                "while (${condition}) {\n\t${cursor}\n}"));
-        provider.addCompletion(new ShorthandCompletion(provider, "class",
-                "class Name {...}",
-                "class ${Name} {\n\tconstructor(${params}) {\n\t\t${cursor}\n\t}\n}"));
+        try {
+            List<SnippetDefinition> snippets = snippetManager.getSnippets();
+            for (SnippetDefinition snippet : snippets) {
+            provider.addCompletion(new ShorthandCompletion(provider,
+                snippet.prefix(),
+                snippet.description().isBlank() ? snippet.prefix() : snippet.description(),
+                snippet.template()));
+            }
+        } catch (IOException ex) {
+            // Fallback to no custom snippets if storage cannot be read.
+        }
 
         provider.setAutoActivationRules(true, null);
         return provider;

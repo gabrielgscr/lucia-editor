@@ -9,6 +9,7 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 - 🎨 Light/dark theme support with theme-aware icons.
 - 🔤 Lucia syntax highlighting + code folding.
 - ⚡ Auto-completion for keywords, types, built-ins, and snippets.
+- 🧩 Snippet manager with user-editable templates (add/edit/delete without touching Java code).
 - 🔎 Local find/replace (`Ctrl+F`, `Ctrl+H`, `F3`, `Shift+F3`).
 - 🌍 Global search and replace in `.lucia` files (`Ctrl+Shift+G`) with:
 	- Folder filter.
@@ -31,37 +32,42 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 	- `print`, `len`, `input`, `str`, `type_of`, `abs`, `min`, `max`, `pow`, `round`, `floor`, `ceil`, `random`
 - Code folding with curly blocks.
 
+## Snippet Management
+
+Snippets are no longer hardcoded in Java source. Lucia Editor now loads them from a user-managed storage file.
+
+- Open manager from: `Tools -> Manage snippets`
+- Supported actions:
+	- Create snippet
+	- Update snippet
+	- Delete snippet
+	- Open the snippets storage file
+- Changes are reloaded in autocomplete immediately.
+
+### Storage format
+
+- File path: `~/.lucia-editor/snippets.properties`
+- Internal module:
+	- `src/main/java/com/lucia/editor/snippets/SnippetManager.java`
+	- `src/main/java/com/lucia/editor/snippets/SnippetDefinition.java`
+- Management UI:
+	- `src/main/java/com/lucia/editor/ui/SnippetManagerDialog.java`
+
+On first run, the file is auto-created with default snippets (`func`, `class`, `if`, `ifelse`, `for`, `while`).
+
 ## Keyboard Shortcuts
 
-- `Ctrl+S`: Save current file
-- `Ctrl+Shift+S`: Save all
-- `Ctrl+N`: New Lucia file
-- `Ctrl+Shift+N`: New folder
-- `Ctrl+O`: Open project
-- `Ctrl+W`: Close current tab
-- `F5`: Run current file
-- `F6`: Compile current file
-- `Ctrl+```: Open terminal tab
-- `Ctrl+F`: Find in current editor
-- `Ctrl+H`: Replace in current editor
-- `F3` / `Shift+F3`: Next/Previous match
-- `Ctrl+Shift+G`: Global search/replace dialog
-- `F12`: Go to Definition
-- `Shift+F12`: Find References
-- `Ctrl+Shift+F`: Format document
-- `Ctrl+-` / `Ctrl+=` / `Ctrl+0`: Font size controls
+- `Ctrl+Shift+I`: Insert snippet picker
 
 ## Stack
 
 - `FlatLaf`
 - `RSyntaxTextArea`
-- `AutoComplete`
-- `RSTAUI`
+	- Insert snippet from picker (`Ctrl+Shift+I`)
 - `Ikonli FontAwesome5`
 
 ## RSyntaxTextArea Ecosystem Usage
 
-Lucia Editor is built around the RSyntaxTextArea ecosystem for editing, completion, and search UX.
 
 - `RSyntaxTextArea`
 	- Main text editor component for each tab.
