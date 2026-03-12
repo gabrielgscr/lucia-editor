@@ -1,15 +1,3 @@
-Diagnostics en tiempo real (errores/warnings)
-Subrayado en el editor con línea/columna.
-Panel de problemas navegable.
-Click en error para saltar a la línea.
-Muchísimo valor para productividad.
-
-
-
-Go to Definition / Find References
-Navegación entre funciones, clases y variables.
-Muy útil cuando crezcan los proyectos.
-
 
 
 Breakpoints y ejecución paso a paso (a futuro)
@@ -27,7 +15,4 @@ Guardado automático configurable.
 Reabrir pestañas y proyecto previo al iniciar.
 
 
-Gestión de snippets
-Plantillas para func, class, if/else, for, etc.
-Acelera muchísimo escritura repetitiva.
 

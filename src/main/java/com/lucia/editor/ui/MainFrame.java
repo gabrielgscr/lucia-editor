@@ -1146,10 +1146,9 @@ public class MainFrame extends JFrame {
     }
 
     private void openSettings() {
-        SettingsDialog dialog = new SettingsDialog(this, config);
+        SettingsDialog dialog = new SettingsDialog(this, config, this::applyConfigurationFromSettings);
         dialog.setVisible(true);
         if (dialog.isSaved()) {
-            applyConfigurationFromSettings();
             appendOutput(I18n.tr("log.settingsSaved"));
         }
     }
