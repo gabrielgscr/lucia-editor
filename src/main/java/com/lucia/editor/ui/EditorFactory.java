@@ -169,7 +169,7 @@ public class EditorFactory {
 
         // Keywords
         for (String kw : List.of("func", "if", "else", "while", "do", "for", "in", "return",
-                "import", "break", "continue", "switch", "case", "default",
+                "import", "break", "continue", "switch", "case", "default", "try", "catch", "finally",
                 "class", "constructor", "let", "this", "not", "null")) {
             provider.addCompletion(new BasicCompletion(provider, kw));
         }
@@ -199,6 +199,12 @@ public class EditorFactory {
             "datetime(${year}, ${month}, ${day}, ${hour}, ${minute}, ${second})"));
         provider.addCompletion(new TemplateCompletion(provider, "today",   "today()",          "today()"));
         provider.addCompletion(new TemplateCompletion(provider, "now",     "now()",            "now()"));
+        provider.addCompletion(new TemplateCompletion(provider, "try",     "try/catch",
+            "try {\n\t${cursor}\n} catch (${err}) {\n\t\n}"));
+        provider.addCompletion(new TemplateCompletion(provider, "tryf",    "try/catch/finally",
+            "try {\n\t${cursor}\n} catch (${err}) {\n\t\n} finally {\n\t\n}"));
+        provider.addCompletion(new TemplateCompletion(provider, "interp",  "string interpolation",
+            "\"${greeting} ${name}: ${value}\""));
 
         if (snippetsInAutocomplete) {
             try {

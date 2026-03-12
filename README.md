@@ -9,6 +9,10 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 - 🎨 Light/dark theme support with theme-aware icons.
 - 🔤 Lucia syntax highlighting + code folding.
 - ⚡ Auto-completion for keywords, types, built-ins, and snippets.
+- 🧠 Language-aware support for:
+	- Compound assignment and increment/decrement operators (`+=`, `-=`, `*=`, `/=`, `%=`, `++`, `--`).
+	- `try/catch/finally` flow control.
+	- String interpolation (`"... ${expr} ..."`).
 - 🧩 Snippet manager with user-editable templates (add/edit/delete without touching Java code).
 - 🔎 Local find/replace (`Ctrl+F`, `Ctrl+H`, `F3`, `Shift+F3`).
 - 🌍 Global search and replace in `.lucia` files (`Ctrl+Shift+G`) with:
@@ -32,7 +36,9 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 - Custom `RSyntaxTextArea` token maker (`text/lucia`).
 - Keyword, type, literals, comments, and operator highlighting.
 - Built-in functions highlighted:
-	- `print`, `len`, `input`, `str`, `type_of`, `abs`, `min`, `max`, `pow`, `round`, `floor`, `ceil`, `random`
+	- `print`, `len`, `input`, `str`, `type_of`, `abs`, `min`, `max`, `pow`, `round`, `floor`, `ceil`, `random`, `today`, `now`
+- Built-in types highlighted:
+	- `int`, `float`, `string`, `bool`, `void`, `any`, `list`, `dict`, `date`, `datetime`
 - Code folding with curly blocks.
 
 ## Snippet Management
@@ -56,7 +62,7 @@ Snippets are no longer hardcoded in Java source. Lucia Editor now loads them fro
 - Management UI:
 	- `src/main/java/com/lucia/editor/ui/SnippetManagerDialog.java`
 
-On first run, the file is auto-created with default snippets (`func`, `class`, `if`, `ifelse`, `for`, `while`).
+On first run, the file is auto-created with default snippets (`func`, `class`, `if`, `ifelse`, `for`, `while`, `date`, `datetime`, `try`, `tryf`, `interp`).
 
 ## Keyboard Shortcuts
 

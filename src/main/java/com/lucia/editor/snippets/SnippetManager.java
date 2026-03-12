@@ -125,6 +125,12 @@ public class SnippetManager {
                     "date(${year}, ${month}, ${day})"),
                 new SnippetDefinition("datetime", "datetime(year, month, day, hour, minute, second)",
                     "datetime(${year}, ${month}, ${day}, ${hour}, ${minute}, ${second})"),
+                new SnippetDefinition("try", "try/catch",
+                    "try {\n\t${cursor}\n} catch (${err}) {\n\t\n}"),
+                new SnippetDefinition("tryf", "try/catch/finally",
+                    "try {\n\t${cursor}\n} catch (${err}) {\n\t\n} finally {\n\t\n}"),
+                new SnippetDefinition("interp", "interpolacion de string",
+                    "\"${greeting} ${name}: ${value}\""),
                 new SnippetDefinition("class", "class Name {...}",
                         "class ${Name} {\n\tconstructor(${params}) {\n\t\t${cursor}\n\t}\n}")
         );

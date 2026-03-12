@@ -36,6 +36,9 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
         tokenMap.put("case",        TokenTypes.RESERVED_WORD);
         tokenMap.put("default",     TokenTypes.RESERVED_WORD);
         tokenMap.put("switch",      TokenTypes.RESERVED_WORD);
+        tokenMap.put("try",         TokenTypes.RESERVED_WORD);
+        tokenMap.put("catch",       TokenTypes.RESERVED_WORD);
+        tokenMap.put("finally",     TokenTypes.RESERVED_WORD);
         tokenMap.put("class",       TokenTypes.RESERVED_WORD);
         tokenMap.put("constructor", TokenTypes.RESERVED_WORD);
         tokenMap.put("let",         TokenTypes.RESERVED_WORD);
@@ -118,6 +121,10 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
                     } else if (c == '/' && i + 1 < end && array[i + 1] == '*') {
                         tokenType = TokenTypes.COMMENT_MULTILINE;
                         i++; // consume '*'
+                    } else if (i + 1 < end && isCompoundOperator(c, array[i + 1])) {
+                        addToken(array, i, i + 1, TokenTypes.OPERATOR, startOffset + i - offset);
+                        i++; // consume compound operator second char
+                        tokenType = TokenTypes.NULL;
                     } else if (c == '"') {
                         tokenType = TokenTypes.LITERAL_STRING_DOUBLE_QUOTE;
                     } else if (RSyntaxUtilities.isDigit(c)) {
@@ -193,5 +200,15 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
             addNullToken();
         }
         return firstToken;
+    }
+
+    private static boolean isCompoundOperator(char first, char second) {
+        if ((first == '+' || first == '-') && second == first) {
+            return true;
+        }
+        if (second != '=') {
+            return false;
+        }
+        return first == '+' || first == '-' || first == '*' || first == '/' || first == '%';
     }
 }
