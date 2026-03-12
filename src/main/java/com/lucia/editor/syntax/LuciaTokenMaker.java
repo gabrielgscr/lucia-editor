@@ -63,8 +63,20 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
         tokenMap.put("floor",   TokenTypes.FUNCTION);
         tokenMap.put("ceil",    TokenTypes.FUNCTION);
         tokenMap.put("random",  TokenTypes.FUNCTION);
+        tokenMap.put("sqrt",    TokenTypes.FUNCTION);
+        tokenMap.put("sin",     TokenTypes.FUNCTION);
+        tokenMap.put("cos",     TokenTypes.FUNCTION);
+        tokenMap.put("tan",     TokenTypes.FUNCTION);
+        tokenMap.put("log",     TokenTypes.FUNCTION);
         tokenMap.put("today",   TokenTypes.FUNCTION);
         tokenMap.put("now",     TokenTypes.FUNCTION);
+        tokenMap.put("sort",    TokenTypes.FUNCTION);
+        tokenMap.put("reverse", TokenTypes.FUNCTION);
+        tokenMap.put("indexOf", TokenTypes.FUNCTION);
+        tokenMap.put("slice",   TokenTypes.FUNCTION);
+        tokenMap.put("replace", TokenTypes.FUNCTION);
+        tokenMap.put("repeat",  TokenTypes.FUNCTION);
+        tokenMap.put("substring", TokenTypes.FUNCTION);
 
         // Built-in types
         tokenMap.put("int",    TokenTypes.DATA_TYPE);
@@ -206,6 +218,9 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
 
     private static boolean isCompoundOperator(char first, char second) {
         if ((first == '+' || first == '-') && second == first) {
+            return true;
+        }
+        if (first == '?' && second == '?') {
             return true;
         }
         if (second != '=') {

@@ -9,11 +9,15 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 - 🎨 Light/dark theme support with theme-aware icons.
 - 🔤 Lucia syntax highlighting + code folding.
 - ⚡ Auto-completion for keywords, types, built-ins, and snippets.
+	- Context-aware member suggestions after `.` for extended `list` and `string` methods.
 - 🧠 Language-aware support for:
 	- Compound assignment and increment/decrement operators (`+=`, `-=`, `*=`, `/=`, `%=`, `++`, `--`).
+	- Null coalescing operator (`??`).
 	- `try/catch/finally` flow control.
 	- String interpolation (`"... ${expr} ..."`).
 	- `const` declarations and class inheritance with `extends`.
+	- Extended list/string methods: `sort`, `reverse`, `indexOf`, `slice`, `replace`, `repeat`, `substring`.
+	- Math built-ins: `sqrt`, `sin`, `cos`, `tan`, `log`.
 - 🧩 Snippet manager with user-editable templates (add/edit/delete without touching Java code).
 - 🔎 Local find/replace (`Ctrl+F`, `Ctrl+H`, `F3`, `Shift+F3`).
 - 🌍 Global search and replace in `.lucia` files (`Ctrl+Shift+G`) with:
@@ -38,8 +42,11 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 - Keyword, type, literals, comments, and operator highlighting.
 - Built-in functions highlighted:
 	- `print`, `len`, `input`, `str`, `type_of`, `abs`, `min`, `max`, `pow`, `round`, `floor`, `ceil`, `random`, `today`, `now`
+	- `sqrt`, `sin`, `cos`, `tan`, `log`
 - Built-in types highlighted:
 	- `int`, `float`, `string`, `bool`, `void`, `any`, `list`, `dict`, `date`, `datetime`
+- Extended list/string method names highlighted in chained calls:
+	- `sort`, `reverse`, `indexOf`, `slice`, `replace`, `repeat`, `substring`
 - Code folding with curly blocks.
 
 ## Snippet Management
@@ -63,7 +70,7 @@ Snippets are no longer hardcoded in Java source. Lucia Editor now loads them fro
 - Management UI:
 	- `src/main/java/com/lucia/editor/ui/SnippetManagerDialog.java`
 
-On first run, the file is auto-created with default snippets (`func`, `class`, `classext`, `if`, `ifelse`, `for`, `while`, `const`, `date`, `datetime`, `try`, `tryf`, `interp`).
+On first run, the file is auto-created with default snippets (`func`, `class`, `classext`, `if`, `ifelse`, `for`, `while`, `const`, `date`, `datetime`, `try`, `tryf`, `interp`, `nullc`, `listops`, `stringops`, `mathx`).
 
 ## Keyboard Shortcuts
 
