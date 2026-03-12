@@ -40,8 +40,10 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
         tokenMap.put("catch",       TokenTypes.RESERVED_WORD);
         tokenMap.put("finally",     TokenTypes.RESERVED_WORD);
         tokenMap.put("class",       TokenTypes.RESERVED_WORD);
+        tokenMap.put("extends",     TokenTypes.RESERVED_WORD);
         tokenMap.put("constructor", TokenTypes.RESERVED_WORD);
         tokenMap.put("let",         TokenTypes.RESERVED_WORD);
+        tokenMap.put("const",       TokenTypes.RESERVED_WORD);
         tokenMap.put("in",          TokenTypes.RESERVED_WORD);
         tokenMap.put("this",        TokenTypes.RESERVED_WORD);
         tokenMap.put("not",         TokenTypes.RESERVED_WORD);

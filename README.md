@@ -13,6 +13,7 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 	- Compound assignment and increment/decrement operators (`+=`, `-=`, `*=`, `/=`, `%=`, `++`, `--`).
 	- `try/catch/finally` flow control.
 	- String interpolation (`"... ${expr} ..."`).
+	- `const` declarations and class inheritance with `extends`.
 - 🧩 Snippet manager with user-editable templates (add/edit/delete without touching Java code).
 - 🔎 Local find/replace (`Ctrl+F`, `Ctrl+H`, `F3`, `Shift+F3`).
 - 🌍 Global search and replace in `.lucia` files (`Ctrl+Shift+G`) with:
@@ -62,7 +63,7 @@ Snippets are no longer hardcoded in Java source. Lucia Editor now loads them fro
 - Management UI:
 	- `src/main/java/com/lucia/editor/ui/SnippetManagerDialog.java`
 
-On first run, the file is auto-created with default snippets (`func`, `class`, `if`, `ifelse`, `for`, `while`, `date`, `datetime`, `try`, `tryf`, `interp`).
+On first run, the file is auto-created with default snippets (`func`, `class`, `classext`, `if`, `ifelse`, `for`, `while`, `const`, `date`, `datetime`, `try`, `tryf`, `interp`).
 
 ## Keyboard Shortcuts
 

@@ -170,7 +170,7 @@ public class EditorFactory {
         // Keywords
         for (String kw : List.of("func", "if", "else", "while", "do", "for", "in", "return",
                 "import", "break", "continue", "switch", "case", "default", "try", "catch", "finally",
-                "class", "constructor", "let", "this", "not", "null")) {
+                "class", "extends", "constructor", "let", "const", "this", "not", "null")) {
             provider.addCompletion(new BasicCompletion(provider, kw));
         }
 
@@ -205,6 +205,10 @@ public class EditorFactory {
             "try {\n\t${cursor}\n} catch (${err}) {\n\t\n} finally {\n\t\n}"));
         provider.addCompletion(new TemplateCompletion(provider, "interp",  "string interpolation",
             "\"${greeting} ${name}: ${value}\""));
+        provider.addCompletion(new TemplateCompletion(provider, "const",   "const name: type = value;",
+            "const ${name}: ${type} = ${value};"));
+        provider.addCompletion(new TemplateCompletion(provider, "classext", "class Child extends Parent",
+            "class ${Child} extends ${Parent} {\n\tconstructor(${params}) {\n\t\t${cursor}\n\t}\n}"));
 
         if (snippetsInAutocomplete) {
             try {

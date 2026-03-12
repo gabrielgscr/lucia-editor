@@ -121,6 +121,8 @@ public class SnippetManager {
                         "for (${init}; ${cond}; ${update}) {\n\t${cursor}\n}"),
                 new SnippetDefinition("while", "while (...) {...}",
                         "while (${condition}) {\n\t${cursor}\n}"),
+                new SnippetDefinition("const", "const name: type = value;",
+                    "const ${name}: ${type} = ${value};"),
                 new SnippetDefinition("date", "date(year, month, day)",
                     "date(${year}, ${month}, ${day})"),
                 new SnippetDefinition("datetime", "datetime(year, month, day, hour, minute, second)",
@@ -132,7 +134,9 @@ public class SnippetManager {
                 new SnippetDefinition("interp", "interpolacion de string",
                     "\"${greeting} ${name}: ${value}\""),
                 new SnippetDefinition("class", "class Name {...}",
-                        "class ${Name} {\n\tconstructor(${params}) {\n\t\t${cursor}\n\t}\n}")
+                    "class ${Name} {\n\tconstructor(${params}) {\n\t\t${cursor}\n\t}\n}"),
+                new SnippetDefinition("classext", "class Child extends Parent {...}",
+                    "class ${Child} extends ${Parent} {\n\tconstructor(${params}) {\n\t\t${cursor}\n\t}\n}")
         );
     }
 }

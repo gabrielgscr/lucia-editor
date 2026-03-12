@@ -20,6 +20,7 @@ public class LuciaSymbolNavigator {
     private static final Pattern DEF_FUNC = Pattern.compile("^\\s*func\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(");
     private static final Pattern DEF_CLASS = Pattern.compile("^\\s*class\\s+([A-Za-z_][A-Za-z0-9_]*)\\b");
     private static final Pattern DEF_LET = Pattern.compile("^\\s*let\\s+([A-Za-z_][A-Za-z0-9_]*)\\b");
+    private static final Pattern DEF_CONST = Pattern.compile("^\\s*const\\s+([A-Za-z_][A-Za-z0-9_]*)\\b");
 
     public String getSymbolAt(String text, int caretPosition) {
         if (text == null || text.isEmpty()) {
@@ -149,6 +150,13 @@ public class LuciaSymbolNavigator {
             int start = letMatcher.start(1);
             return new SymbolDefinition(symbol, SymbolKind.VARIABLE,
                     new SymbolLocation(root, file, lineNumber, start + 1, symbol.length(), line));
+        }
+
+        Matcher constMatcher = DEF_CONST.matcher(line);
+        if (constMatcher.find() && symbol.equals(constMatcher.group(1))) {
+            int start = constMatcher.start(1);
+            return new SymbolDefinition(symbol, SymbolKind.VARIABLE,
+                new SymbolLocation(root, file, lineNumber, start + 1, symbol.length(), line));
         }
 
         return null;
