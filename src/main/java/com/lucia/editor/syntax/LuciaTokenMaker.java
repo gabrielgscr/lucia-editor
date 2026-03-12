@@ -58,6 +58,8 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
         tokenMap.put("floor",   TokenTypes.FUNCTION);
         tokenMap.put("ceil",    TokenTypes.FUNCTION);
         tokenMap.put("random",  TokenTypes.FUNCTION);
+        tokenMap.put("today",   TokenTypes.FUNCTION);
+        tokenMap.put("now",     TokenTypes.FUNCTION);
 
         // Built-in types
         tokenMap.put("int",    TokenTypes.DATA_TYPE);
@@ -68,6 +70,8 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
         tokenMap.put("any",    TokenTypes.DATA_TYPE);
         tokenMap.put("list",   TokenTypes.DATA_TYPE);
         tokenMap.put("dict",   TokenTypes.DATA_TYPE);
+        tokenMap.put("date",   TokenTypes.DATA_TYPE);
+        tokenMap.put("datetime", TokenTypes.DATA_TYPE);
 
         return tokenMap;
     }

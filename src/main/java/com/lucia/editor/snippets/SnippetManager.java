@@ -121,6 +121,10 @@ public class SnippetManager {
                         "for (${init}; ${cond}; ${update}) {\n\t${cursor}\n}"),
                 new SnippetDefinition("while", "while (...) {...}",
                         "while (${condition}) {\n\t${cursor}\n}"),
+                new SnippetDefinition("date", "date(year, month, day)",
+                    "date(${year}, ${month}, ${day})"),
+                new SnippetDefinition("datetime", "datetime(year, month, day, hour, minute, second)",
+                    "datetime(${year}, ${month}, ${day}, ${hour}, ${minute}, ${second})"),
                 new SnippetDefinition("class", "class Name {...}",
                         "class ${Name} {\n\tconstructor(${params}) {\n\t\t${cursor}\n\t}\n}")
         );

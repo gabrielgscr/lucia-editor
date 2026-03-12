@@ -175,7 +175,7 @@ public class EditorFactory {
         }
 
         // Type names
-        for (String type : List.of("int", "float", "string", "bool", "void", "any", "list", "dict")) {
+        for (String type : List.of("int", "float", "string", "bool", "void", "any", "list", "dict", "date", "datetime")) {
             provider.addCompletion(new BasicCompletion(provider, type));
         }
 
@@ -193,6 +193,12 @@ public class EditorFactory {
         provider.addCompletion(new TemplateCompletion(provider, "floor",   "floor(value)",    "floor(${value})"));
         provider.addCompletion(new TemplateCompletion(provider, "ceil",    "ceil(value)",     "ceil(${value})"));
         provider.addCompletion(new TemplateCompletion(provider, "random",  "random(min, max)","random(${min}, ${max})"));
+        provider.addCompletion(new TemplateCompletion(provider, "date",    "date(year, month, day)",
+            "date(${year}, ${month}, ${day})"));
+        provider.addCompletion(new TemplateCompletion(provider, "datetime", "datetime(year, month, day, hour, minute, second)",
+            "datetime(${year}, ${month}, ${day}, ${hour}, ${minute}, ${second})"));
+        provider.addCompletion(new TemplateCompletion(provider, "today",   "today()",          "today()"));
+        provider.addCompletion(new TemplateCompletion(provider, "now",     "now()",            "now()"));
 
         if (snippetsInAutocomplete) {
             try {
