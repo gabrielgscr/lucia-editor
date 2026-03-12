@@ -115,7 +115,8 @@ public final class LuciaFormatter {
             return;
         }
         String current = out.toString();
-        if (current.matches(".*\\b(import|return|case)$")) {
+        if (current.matches(".*\\b(import|return|case)$")
+                || current.matches(".*(\\?\\?|\\?|:|==|!=|<=|>=|&&|\\|\\||[=+\\-*/%<>])$")) {
             out.append(' ');
         }
     }
@@ -133,7 +134,9 @@ public final class LuciaFormatter {
         text = text.replaceAll("\\bdo\\s*\\{", "do {");
         text = text.replaceAll("\\b(if|while|for|switch)\\s*\\(", "$1 (");
         text = text.replaceAll("\\belse\\s+if\\s*\\(", "else if (");
-        text = text.replaceAll("\\s*\\?\\s*", " ? ");
+        text = text.replaceAll("\\?\\s+\\?", "??");
+        text = text.replaceAll("\\s*\\?\\?\\s*", " ?? ");
+        text = text.replaceAll("(?<!\\?)\\s*\\?\\s*(?!\\?)", " ? ");
         text = SPACE_AROUND_EQUAL.matcher(text).replaceAll(" = ");
         text = SPACE_AROUND_COMPARISON.matcher(text).replaceAll(" $1 ");
         text = SPACE_AROUND_MUL.matcher(text).replaceAll(" $1 ");
