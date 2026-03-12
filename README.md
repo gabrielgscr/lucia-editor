@@ -30,7 +30,7 @@ Lucia Editor is a desktop IDE-style editor for Lucia language projects, built wi
 - 🧭 Go to Definition / Find References (`F12`, `Shift+F12`) for:
 	- `func`
 	- `class`
-	- `let` variables
+	- `let` and `const` variables
 - 🧹 Code formatter + `Ctrl+Shift+F` + optional format-on-save.
 - 🖥️ Integrated terminal panel.
 - ▶️ Lucia CLI integration (run/compile/tests/custom command).
@@ -104,7 +104,7 @@ On first run, the file is auto-created with default snippets (`func`, `class`, `
 	- Enables code folding based on curly blocks.
 	- Integration reference: `src/main/java/com/lucia/editor/ui/EditorFactory.java`
 - `AutoComplete` (`org.fife.ui.autocomplete`)
-	- Provides language keywords, built-in functions, and snippets (`TemplateCompletion` / `ShorthandCompletion`).
+	- Provides language keywords, built-in functions, context-aware member methods, and snippets (`FunctionCompletion` / `TemplateCompletion` / `ShorthandCompletion`).
 	- Integration reference: `src/main/java/com/lucia/editor/ui/EditorFactory.java`
 - `RSTAUI Search` (`FindDialog`, `ReplaceDialog`, `SearchEngine`)
 	- Powers in-editor find/replace behavior.
