@@ -142,6 +142,7 @@ public class EditorFactory {
             scheme.getStyle(TokenTypes.LITERAL_BOOLEAN).foreground              = new Color(0x569CD6);
             scheme.getStyle(TokenTypes.LITERAL_NUMBER_DECIMAL_INT).foreground   = new Color(0xB5CEA8);
             scheme.getStyle(TokenTypes.LITERAL_STRING_DOUBLE_QUOTE).foreground  = new Color(0xCE9178);
+            scheme.getStyle(TokenTypes.VARIABLE).foreground                      = new Color(0x4EC9B0);
             scheme.getStyle(TokenTypes.COMMENT_EOL).foreground                  = new Color(0x6A9955);
             scheme.getStyle(TokenTypes.COMMENT_MULTILINE).foreground            = new Color(0x6A9955);
             scheme.getStyle(TokenTypes.OPERATOR).foreground                     = new Color(0xD4D4D4);
@@ -153,6 +154,7 @@ public class EditorFactory {
             scheme.getStyle(TokenTypes.LITERAL_BOOLEAN).foreground              = new Color(0x0033B3);
             scheme.getStyle(TokenTypes.LITERAL_NUMBER_DECIMAL_INT).foreground   = new Color(0x1750EB);
             scheme.getStyle(TokenTypes.LITERAL_STRING_DOUBLE_QUOTE).foreground  = new Color(0x067D17);
+            scheme.getStyle(TokenTypes.VARIABLE).foreground                      = new Color(0x0B7A75);
             scheme.getStyle(TokenTypes.COMMENT_EOL).foreground                  = new Color(0x5F826B);
             scheme.getStyle(TokenTypes.COMMENT_MULTILINE).foreground            = new Color(0x5F826B);
             scheme.getStyle(TokenTypes.OPERATOR).foreground                     = new Color(0xC77600);

@@ -176,7 +176,22 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
                     break;
 
                 case TokenTypes.LITERAL_STRING_DOUBLE_QUOTE:
-                    if (c == '"') {
+                    if (c == '$' && i + 1 < end && array[i + 1] == '{') {
+                        if (i > tokenStart) {
+                            addToken(array, tokenStart, i - 1, tokenType, startOffset + tokenStart - offset);
+                        }
+
+                        int interpolationEnd = findInterpolationEnd(array, i + 2, end);
+                        if (interpolationEnd == -1) {
+                            addToken(array, i, end - 1, TokenTypes.VARIABLE, startOffset + i - offset);
+                            addNullToken();
+                            return firstToken;
+                        }
+
+                        addToken(array, i, interpolationEnd, TokenTypes.VARIABLE, startOffset + i - offset);
+                        i = interpolationEnd;
+                        tokenStart = i + 1;
+                    } else if (c == '"') {
                         addToken(array, tokenStart, i, tokenType, startOffset + tokenStart - offset);
                         tokenType = TokenTypes.NULL;
                     }
@@ -227,5 +242,44 @@ public class LuciaTokenMaker extends AbstractTokenMaker {
             return false;
         }
         return first == '+' || first == '-' || first == '*' || first == '/' || first == '%';
+    }
+
+    private static int findInterpolationEnd(char[] array, int start, int end) {
+        int braceDepth = 1;
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = start; i < end; i++) {
+            char c = array[i];
+
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (c == '\\') {
+                    escaped = true;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (c == '"') {
+                inString = true;
+                escaped = false;
+                continue;
+            }
+            if (c == '{') {
+                braceDepth++;
+                continue;
+            }
+            if (c == '}') {
+                braceDepth--;
+                if (braceDepth == 0) {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
     }
 }
