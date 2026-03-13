@@ -1,10 +1,12 @@
 package com.lucia.editor.ui;
 
 import java.awt.Component;
+import java.awt.Color;
 import java.awt.Font;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.swing.JTree;
+import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
@@ -29,6 +31,8 @@ class FileTreeCellRenderer extends DefaultTreeCellRenderer {
             boolean expanded, boolean leaf, int row, boolean hasFocus) {
 
         super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus);
+        setFont(tree.getFont());
+        Color iconColor = resolveIconColor();
 
         if (value instanceof DefaultMutableTreeNode node
                 && node.getUserObject() instanceof Path path) {
@@ -47,15 +51,22 @@ class FileTreeCellRenderer extends DefaultTreeCellRenderer {
             if (Files.isDirectory(path)) {
                 setIcon(FontIcon.of(
                         expanded ? FontAwesomeSolid.FOLDER_OPEN : FontAwesomeSolid.FOLDER,
-                        14));
+                        14, iconColor));
             } else {
-                setIcon(FontIcon.of(FontAwesomeSolid.FILE_CODE, 14));
+                setIcon(FontIcon.of(FontAwesomeSolid.FILE_CODE, 14, iconColor));
             }
         } else if (value instanceof DefaultMutableTreeNode node
                 && node.getUserObject() instanceof String) {
-            setIcon(FontIcon.of(FontAwesomeSolid.FOLDER, 14));
+            setIcon(FontIcon.of(FontAwesomeSolid.FOLDER, 14, iconColor));
         }
 
         return this;
+    }
+
+    private Color resolveIconColor() {
+        Color fg = UIManager.getColor("Label.foreground");
+        if (fg == null) return Color.DARK_GRAY;
+        double luminance = 0.2126 * fg.getRed() + 0.7152 * fg.getGreen() + 0.0722 * fg.getBlue();
+        return luminance > 180 ? new Color(200, 200, 200) : fg;
     }
 }
