@@ -701,7 +701,7 @@ public class MainFrame extends JFrame {
         if (config.isDiagnosticsAutoOpenProblems()
                 && diagnosticsByFile.get(normalized) != null
                 && !diagnosticsByFile.get(normalized).isEmpty()) {
-            openProblemsPanel();
+            showProblemsTabWithoutFocusChange();
         }
     }
 
@@ -780,6 +780,35 @@ public class MainFrame extends JFrame {
         if (index >= 0) {
             bottomTabs.setSelectedIndex(index);
             problemsPanel.requestFocusInWindow();
+        }
+    }
+
+    /**
+     * Switches the bottom tab to Problems without stealing focus from the active editor.
+     * Used by automatic diagnostics so the user can keep typing uninterrupted.
+     */
+    private void showProblemsTabWithoutFocusChange() {
+        if (bottomTabs == null || problemsPanel == null) {
+            return;
+        }
+        int index = bottomTabs.indexOfComponent(problemsPanel);
+        if (index < 0 || bottomTabs.getSelectedIndex() == index) {
+            return;
+        }
+        // Find the currently focused editor so we can restore its focus after the tab switch.
+        RSyntaxTextArea focusedEditor = null;
+        java.awt.Component focused = java.awt.KeyboardFocusManager
+                .getCurrentKeyboardFocusManager().getFocusOwner();
+        if (focused instanceof RSyntaxTextArea rsta) {
+            focusedEditor = rsta;
+        }
+
+        bottomTabs.setSelectedIndex(index);
+
+        // Immediately hand focus back to the editor so typing is not interrupted.
+        if (focusedEditor != null) {
+            final RSyntaxTextArea editorToRefocus = focusedEditor;
+            SwingUtilities.invokeLater(editorToRefocus::requestFocusInWindow);
         }
     }
 
