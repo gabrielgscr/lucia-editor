@@ -186,6 +186,12 @@ public class MainFrame extends JFrame {
         });
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(1000, 700));
+
+        java.net.URL appIcon = getClass().getResource("/lucia-editor.png");
+        if (appIcon != null) {
+            setIconImage(new javax.swing.ImageIcon(appIcon).getImage());
+        }
+
         setLocationRelativeTo(null);
     }
 
