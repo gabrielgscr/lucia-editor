@@ -182,6 +182,7 @@ public class MainFrame extends JFrame {
         outputPanel.add(inputBar, BorderLayout.SOUTH);
 
         problemsPanel = new ProblemsPanel(this::openProblem, this::applyQuickFixFromProblem);
+        problemsPanel.setDarkTheme(darkTheme);
 
         bottomTabs = new JTabbedPane(JTabbedPane.BOTTOM);
         bottomTabs.addTab(I18n.tr("tab.output"), outputPanel);
@@ -1311,6 +1312,7 @@ public class MainFrame extends JFrame {
         pack();
         setSize(Math.max(getWidth(), 1000), Math.max(getHeight(), 700));
         editorFactory.setDarkTheme(dark);
+        problemsPanel.setDarkTheme(dark);
         openEditors.values().forEach(editor -> {
             editorFactory.applyTheme(editor);
             editorFactory.applyFontSize(editor);
