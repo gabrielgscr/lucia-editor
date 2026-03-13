@@ -1,6 +1,7 @@
 package com.lucia.editor.ui;
 
 import java.awt.Component;
+import java.awt.Font;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.swing.JTree;
@@ -14,6 +15,14 @@ import org.kordamp.ikonli.swing.FontIcon;
  */
 class FileTreeCellRenderer extends DefaultTreeCellRenderer {
 
+    private Path pendingTransferPath;
+    private boolean pendingTransferCut;
+
+    void setPendingTransfer(Path path, boolean cutMode) {
+        this.pendingTransferPath = path == null ? null : path.toAbsolutePath().normalize();
+        this.pendingTransferCut = cutMode;
+    }
+
     @Override
     public Component getTreeCellRendererComponent(
             JTree tree, Object value, boolean selected,
@@ -23,10 +32,16 @@ class FileTreeCellRenderer extends DefaultTreeCellRenderer {
 
         if (value instanceof DefaultMutableTreeNode node
                 && node.getUserObject() instanceof Path path) {
+            Path normalized = path.toAbsolutePath().normalize();
             // Always display only the last segment; full path lives in userObject.
             String name = path.getFileName() != null
-                    ? path.getFileName().toString()
-                    : path.toAbsolutePath().normalize().toString();
+                ? path.getFileName().toString()
+                : normalized.toString();
+
+            if (pendingTransferPath != null && pendingTransferPath.equals(normalized)) {
+            name = pendingTransferCut ? name + " [CUT]" : name + " [COPY]";
+            setFont(getFont().deriveFont(pendingTransferCut ? Font.ITALIC : Font.BOLD));
+            }
             setText(name);
 
             if (Files.isDirectory(path)) {

@@ -54,6 +54,7 @@ public class ProjectTreePanel {
     }
 
     private final JTree tree;
+    private final FileTreeCellRenderer treeRenderer;
     private Path projectRoot;
     private final ProjectTreeActions actions;
     private PendingTreeTransfer pendingTransfer;
@@ -75,7 +76,8 @@ public class ProjectTreePanel {
             @Override public void mouseReleased(MouseEvent e) { showContextMenu(e); }
         });
         ToolTipManager.sharedInstance().registerComponent(tree);
-        tree.setCellRenderer(new FileTreeCellRenderer());
+        this.treeRenderer = new FileTreeCellRenderer();
+        tree.setCellRenderer(treeRenderer);
         tree.setRowHeight(22);
         tree.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
         tree.setDragEnabled(true);
@@ -113,6 +115,10 @@ public class ProjectTreePanel {
         tree.getInputMap().put(KeyStroke.getKeyStroke("F5"), "refreshProjectTree");
         tree.getActionMap().put("refreshProjectTree", new AbstractAction() {
             @Override public void actionPerformed(java.awt.event.ActionEvent e) { rebuildTree(); }
+        });
+        tree.getInputMap().put(KeyStroke.getKeyStroke("ESCAPE"), "clearClipboardTransfer");
+        tree.getActionMap().put("clearClipboardTransfer", new AbstractAction() {
+            @Override public void actionPerformed(java.awt.event.ActionEvent e) { clearPendingTransfer(); }
         });
     }
 
@@ -284,6 +290,7 @@ public class ProjectTreePanel {
             return;
         }
         pendingTransfer = new PendingTreeTransfer(selected.toAbsolutePath().normalize(), false);
+        refreshPendingTransferVisualState();
         actions.onLog(I18n.tr("log.copyPrepared") + ": " + selected);
     }
 
@@ -298,6 +305,7 @@ public class ProjectTreePanel {
             return;
         }
         pendingTransfer = new PendingTreeTransfer(selected.toAbsolutePath().normalize(), true);
+        refreshPendingTransferVisualState();
         actions.onLog(I18n.tr("log.cutPrepared") + ": " + selected);
     }
 
@@ -309,6 +317,7 @@ public class ProjectTreePanel {
         Path source = pendingTransfer.source();
         if (!Files.exists(source)) {
             pendingTransfer = null;
+            refreshPendingTransferVisualState();
             showError(I18n.tr("error.clipboardSourceMissing"));
             return;
         }
@@ -321,7 +330,7 @@ public class ProjectTreePanel {
 
         if (pendingTransfer.cut()) {
             movePath(source, targetDirectory);
-            pendingTransfer = null;
+            clearPendingTransfer();
             return;
         }
 
@@ -514,6 +523,7 @@ public class ProjectTreePanel {
             menu.add(menuItem("menu.copy", e -> copySelectedForPaste()));
             menu.add(menuItem("menu.cut", e -> cutSelectedForPaste()));
             menu.add(pasteMenuItem());
+            menu.add(menuItem("menu.clearClipboard", e -> clearPendingTransfer()));
             menu.addSeparator();
             menu.add(menuItem("menu.rename", e -> renameSelected()));
             menu.add(menuItem("menu.moveTo", e -> moveSelectedToDirectory()));
@@ -528,6 +538,7 @@ public class ProjectTreePanel {
             menu.add(menuItem("menu.newFile", e -> createLuciaFile()));
             menu.add(menuItem("menu.newFolder", e -> createFolder()));
             menu.add(pasteMenuItem());
+            menu.add(menuItem("menu.clearClipboard", e -> clearPendingTransfer()));
             if (!selected.equals(projectRoot)) {
                 menu.addSeparator();
                 menu.add(menuItem("menu.duplicate", e -> duplicateSelected()));
@@ -554,10 +565,36 @@ public class ProjectTreePanel {
     }
 
     private JMenuItem pasteMenuItem() {
-        JMenuItem item = new JMenuItem(I18n.tr("menu.paste"));
+        JMenuItem item = new JMenuItem(pendingTransferLabel());
         item.setEnabled(pendingTransfer != null);
         item.addActionListener(e -> pasteIntoSelectedDirectory());
         return item;
+    }
+
+    private String pendingTransferLabel() {
+        if (pendingTransfer == null || pendingTransfer.source() == null) {
+            return I18n.tr("menu.paste");
+        }
+        String sourceName = pendingTransfer.source().getFileName() == null
+                ? pendingTransfer.source().toString()
+                : pendingTransfer.source().getFileName().toString();
+        return I18n.tr("menu.paste") + " (" + sourceName + ")";
+    }
+
+    private void clearPendingTransfer() {
+        if (pendingTransfer == null) {
+            return;
+        }
+        pendingTransfer = null;
+        refreshPendingTransferVisualState();
+        actions.onLog(I18n.tr("log.clipboardCleared"));
+    }
+
+    private void refreshPendingTransferVisualState() {
+        Path markedPath = pendingTransfer == null ? null : pendingTransfer.source();
+        boolean cutMode = pendingTransfer != null && pendingTransfer.cut();
+        treeRenderer.setPendingTransfer(markedPath, cutMode);
+        tree.repaint();
     }
 
     private void openSelectedFile() {
