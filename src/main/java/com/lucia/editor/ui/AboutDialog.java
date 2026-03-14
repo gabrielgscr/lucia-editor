@@ -1,9 +1,11 @@
 package com.lucia.editor.ui;
 
 import com.lucia.editor.i18n.I18n;
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.Dimension;
+import java.awt.Image;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,10 +13,13 @@ import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.BorderFactory;
+import javax.swing.ImageIcon;
 import javax.swing.JEditorPane;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
-import javax.swing.JScrollPane;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 
 /** Static utility that displays the About dialog for the Lucia Editor. */
@@ -30,6 +35,8 @@ public final class AboutDialog {
     /** Shows the About dialog as a modal child of {@code owner}. */
     public static void show(JFrame owner, boolean darkTheme) {
         String version = resolveAppVersion(owner.getClass());
+        java.net.URL logoUrl = AboutDialog.class.getResource("/lucia-editor.png");
+
         JEditorPane content = new JEditorPane("text/html", buildHtml(version, darkTheme));
         content.setEditable(false);
         content.setOpaque(false);
@@ -42,11 +49,20 @@ public final class AboutDialog {
             } catch (Exception ignored) {}
         });
 
-        JScrollPane scroll = new JScrollPane(content);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.setPreferredSize(new Dimension(620, 420));
-        JOptionPane.showMessageDialog(owner, scroll, I18n.tr("menu.about"),
-                JOptionPane.INFORMATION_MESSAGE);
+        JPanel panel = new JPanel(new BorderLayout(16, 0));
+        panel.setPreferredSize(new Dimension(660, 440));
+        panel.add(content, BorderLayout.CENTER);
+
+        if (logoUrl != null) {
+            Image scaled = new ImageIcon(logoUrl).getImage().getScaledInstance(96, 96, Image.SCALE_SMOOTH);
+            JLabel logoLabel = new JLabel(new ImageIcon(scaled));
+            logoLabel.setVerticalAlignment(SwingConstants.TOP);
+            logoLabel.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 14));
+            panel.add(logoLabel, BorderLayout.EAST);
+        }
+
+        JOptionPane.showMessageDialog(owner, panel, I18n.tr("menu.about"),
+                JOptionPane.PLAIN_MESSAGE);
     }
 
     // ── private ────────────────────────────────────────────────────────
@@ -67,9 +83,9 @@ public final class AboutDialog {
                 + CONTACT_EMAIL + "'>" + escapeHtml(CONTACT_EMAIL) + "</a></div>"
                 + "<div style='margin-top:10px;margin-bottom:4px;font-weight:700;'>" + I18n.tr("about.repositoriesTitle") + "</div>"
                 + "<div><b>" + I18n.tr("about.luciaRepo") + ":</b> <a style='color:" + linkHex + ";' href='"
-                + LUCIA_REPO_URL + "'>" + escapeHtml(LUCIA_REPO_URL) + "</a></div>"
+                + LUCIA_REPO_URL + "'>github.com/gabrielgscr/lucia</a></div>"
                 + "<div><b>" + I18n.tr("about.editorRepo") + ":</b> <a style='color:" + linkHex + ";' href='"
-                + LUCIA_EDITOR_REPO_URL + "'>" + escapeHtml(LUCIA_EDITOR_REPO_URL) + "</a></div>"
+                + LUCIA_EDITOR_REPO_URL + "'>github.com/gabrielgscr/lucia-editor</a></div>"
                 + "</body></html>";
     }
 

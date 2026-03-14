@@ -1,5 +1,11 @@
 # Lucia Editor
 
+<p align="center">
+	<img src="src/main/resources/Lucia%20logo.png" alt="Lucia Logo" width="120" />
+	&nbsp;&nbsp;&nbsp;&nbsp;
+	<img src="src/main/resources/lucia-editor.png" alt="Lucia Editor Logo" width="120" />
+</p>
+
 Lucia Editor is a desktop IDE-style editor for Lucia language projects, built with Java Swing.
 
 ## Highlights

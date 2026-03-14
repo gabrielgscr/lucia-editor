@@ -30,6 +30,15 @@ import org.kordamp.ikonli.swing.FontIcon;
  */
 public class ProblemsPanel extends JPanel {
 
+    // Light theme: deep reds/ambers readable on white backgrounds.
+    // Dark theme: lighter, more saturated tones visible on dark backgrounds.
+    private static final Color ERROR_COLOR_LIGHT   = new Color(0xB42318);
+    private static final Color WARNING_COLOR_LIGHT = new Color(0xA46A00);
+    private static final Color ERROR_COLOR_DARK    = new Color(0xF47067);
+    private static final Color WARNING_COLOR_DARK  = new Color(0xE5A243);
+
+    private boolean darkTheme;
+
     public record ProblemEntry(Path file, LuciaDiagnostic diagnostic) {
         @Override
         public String toString() {
@@ -45,6 +54,11 @@ public class ProblemsPanel extends JPanel {
     private final JList<ProblemEntry> list;
     private final Map<Path, List<LuciaDiagnostic>> diagnosticsByFile;
     private final JPopupMenu popup;
+
+    public void setDarkTheme(boolean dark) {
+        this.darkTheme = dark;
+        list.repaint();
+    }
 
     public ProblemsPanel(Consumer<ProblemEntry> onOpen, Consumer<ProblemEntry> onQuickFix) {
         super(new BorderLayout());
@@ -64,14 +78,16 @@ public class ProblemsPanel extends JPanel {
                 Component c = super.getListCellRendererComponent(jList, value, index, isSelected, cellHasFocus);
                 if (value instanceof ProblemEntry entry) {
                     setText(formatEntry(entry));
-                    setIcon(entry.diagnostic().severity() == LuciaDiagnosticSeverity.WARNING
-                            ? FontIcon.of(FontAwesomeSolid.EXCLAMATION_TRIANGLE, 12, new Color(0xA46A00))
-                            : FontIcon.of(FontAwesomeSolid.TIMES_CIRCLE, 12, new Color(0xB42318)));
-                    if (!isSelected) {
-                        setForeground(entry.diagnostic().severity() == LuciaDiagnosticSeverity.WARNING
-                                ? new Color(0xA46A00)
-                                : new Color(0xB42318));
-                    }
+                        boolean isWarning = entry.diagnostic().severity() == LuciaDiagnosticSeverity.WARNING;
+                        Color fg = isWarning
+                            ? (darkTheme ? WARNING_COLOR_DARK : WARNING_COLOR_LIGHT)
+                            : (darkTheme ? ERROR_COLOR_DARK   : ERROR_COLOR_LIGHT);
+                        setIcon(isWarning
+                            ? FontIcon.of(FontAwesomeSolid.EXCLAMATION_TRIANGLE, 12, fg)
+                            : FontIcon.of(FontAwesomeSolid.TIMES_CIRCLE, 12, fg));
+                        if (!isSelected) {
+                        setForeground(fg);
+                        }
                 }
                 return c;
             }
