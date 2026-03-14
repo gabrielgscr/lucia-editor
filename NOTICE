@@ -1,0 +1,34 @@
+Lucia Editor
+Copyright (c) 2026 Gabriel González. All rights reserved, except as expressly licensed.
+
+This project is licensed under the Mozilla Public License, Version 2.0 (MPL-2.0).
+You may obtain a copy of the License at:
+https://www.mozilla.org/MPL/2.0/
+
+Unless otherwise stated, all source code in this repository is licensed under
+the terms of the MPL-2.0.
+
+Non-code files and assets may be subject to different terms where explicitly
+indicated.
+
+This NOTICE file is provided for informational purposes only and does not modify
+the terms of the applicable license.
+
+The following items are not licensed under the MPL-2.0 unless expressly stated otherwise:
+- Project name
+- Product name
+- Logos
+- Icons
+- Trademarks
+- Branding assets
+- Visual identity elements
+- Screenshots, demos, and promotional graphics, unless explicitly indicated
+
+Use of the project’s name, marks, or branding is subject to the terms described in
+the TRADEMARKS.md file.
+
+Third-party components, libraries, fonts, and assets included in this repository may be
+subject to their own license terms. See the corresponding license files, attribution
+notices, or dependency manifests for details.
+
+See also: `THIRD_PARTY_NOTICES.md`.
