@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -120,7 +121,37 @@ public class MainFrame extends JFrame {
         this.inputField       = new JTextField();
         this.snippetManager   = new SnippetManager();
         this.editorFactory    = new EditorFactory(darkTheme, editorFontSize, snippetManager);
-        this.projectTreePanel = new ProjectTreePanel(this::openFile, this::appendOutput);
+        this.projectTreePanel = new ProjectTreePanel(new ProjectTreePanel.ProjectTreeActions() {
+            @Override
+            public void openFile(Path path) {
+                MainFrame.this.openFile(path);
+            }
+
+            @Override
+            public void runFile(Path path) {
+                MainFrame.this.runFile(path);
+            }
+
+            @Override
+            public void compileFile(Path path) {
+                MainFrame.this.compileFile(path);
+            }
+
+            @Override
+            public void onPathChanged(Path oldPath, Path newPath) {
+                MainFrame.this.handleProjectPathChanged(oldPath, newPath);
+            }
+
+            @Override
+            public void onPathDeleted(Path path) {
+                MainFrame.this.handleProjectPathDeleted(path);
+            }
+
+            @Override
+            public void onLog(String message) {
+                MainFrame.this.appendOutput(message);
+            }
+        });
         this.terminalPanel    = new TerminalPanel();
         this.searchSupport    = new EditorSearchSupport(this, this::getCurrentEditor,
                 this::appendOutput, this::showError);
@@ -155,6 +186,12 @@ public class MainFrame extends JFrame {
         });
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(1000, 700));
+
+        java.net.URL appIcon = getClass().getResource("/lucia-editor.png");
+        if (appIcon != null) {
+            setIconImage(new javax.swing.ImageIcon(appIcon).getImage());
+        }
+
         setLocationRelativeTo(null);
     }
 
@@ -608,6 +645,23 @@ public class MainFrame extends JFrame {
         Path file = getCurrentFileFromTab();
         RSyntaxTextArea editor = getCurrentEditor();
         if (file == null || editor == null) { showError(I18n.tr("error.noFile")); return; }
+        saveEditorToFile(file, editor);
+    }
+
+    private void saveFile(Path file) {
+        if (file == null) {
+            showError(I18n.tr("error.noFile"));
+            return;
+        }
+        Path normalized = file.toAbsolutePath().normalize();
+        RSyntaxTextArea editor = openEditors.get(normalized);
+        if (editor == null) {
+            return;
+        }
+        saveEditorToFile(normalized, editor);
+    }
+
+    private void saveEditorToFile(Path file, RSyntaxTextArea editor) {
         try {
             maybeFormatOnSave(editor);
             Files.writeString(file, editor.getText(), StandardCharsets.UTF_8);
@@ -653,13 +707,13 @@ public class MainFrame extends JFrame {
         }
         DocumentListener listener = new DocumentListener() {
             @Override
-            public void insertUpdate(DocumentEvent e) { requestDiagnostics(file, editor); }
+            public void insertUpdate(DocumentEvent e) { requestDiagnostics(findPathForEditor(editor), editor); }
 
             @Override
-            public void removeUpdate(DocumentEvent e) { requestDiagnostics(file, editor); }
+            public void removeUpdate(DocumentEvent e) { requestDiagnostics(findPathForEditor(editor), editor); }
 
             @Override
-            public void changedUpdate(DocumentEvent e) { requestDiagnostics(file, editor); }
+            public void changedUpdate(DocumentEvent e) { requestDiagnostics(findPathForEditor(editor), editor); }
         };
         editor.getDocument().addDocumentListener(listener);
         diagnosticsListeners.put(editor, listener);
@@ -916,26 +970,34 @@ public class MainFrame extends JFrame {
 
     private void runCurrentFile() {
         Path file = getCurrentFileFromTab();
-        if (file == null) { showError(I18n.tr("error.noFile")); return; }
-        if (config.isClearOutputBeforeRun()) {
-            output.setText("");
-        }
-        if (config.isSaveBeforeRun()) {
-            saveCurrentFile();
-        }
-        runner.run(file);
+        runFile(file);
     }
 
     private void compileCurrentFile() {
         Path file = getCurrentFileFromTab();
+        compileFile(file);
+    }
+
+    private void runFile(Path file) {
         if (file == null) { showError(I18n.tr("error.noFile")); return; }
         if (config.isClearOutputBeforeRun()) {
             output.setText("");
         }
         if (config.isSaveBeforeRun()) {
-            saveCurrentFile();
+            saveFile(file);
         }
-        runner.compile(file);
+        runner.run(file.toAbsolutePath().normalize());
+    }
+
+    private void compileFile(Path file) {
+        if (file == null) { showError(I18n.tr("error.noFile")); return; }
+        if (config.isClearOutputBeforeRun()) {
+            output.setText("");
+        }
+        if (config.isSaveBeforeRun()) {
+            saveFile(file);
+        }
+        runner.compile(file.toAbsolutePath().normalize());
     }
 
     private void runTestsCommand() {
@@ -1146,6 +1208,126 @@ public class MainFrame extends JFrame {
     private Path getCurrentFileFromTab() {
         Component selected = editorTabs.getSelectedComponent();
         return selected == null ? null : tabToPath.get(selected);
+    }
+
+    private void handleProjectPathChanged(Path oldPath, Path newPath) {
+        Path normalizedOld = oldPath.toAbsolutePath().normalize();
+        Path normalizedNew = newPath.toAbsolutePath().normalize();
+
+        remapOpenFileReferences(normalizedOld, normalizedNew);
+        remapDiagnosticsReferences(normalizedOld, normalizedNew);
+
+        if (currentFile != null && currentFile.startsWith(normalizedOld)) {
+            currentFile = remapPathPrefix(currentFile, normalizedOld, normalizedNew);
+        }
+        onTabChanged();
+    }
+
+    private void handleProjectPathDeleted(Path path) {
+        Path normalized = path.toAbsolutePath().normalize();
+        List<Component> tabsToClose = new ArrayList<>();
+        for (Map.Entry<Component, Path> entry : tabToPath.entrySet()) {
+            if (entry.getValue().startsWith(normalized)) {
+                tabsToClose.add(entry.getKey());
+            }
+        }
+        for (Component tab : tabsToClose) {
+            closeTab(tab);
+        }
+        clearDiagnosticsUnder(normalized);
+        onTabChanged();
+    }
+
+    private void remapOpenFileReferences(Path oldRoot, Path newRoot) {
+        LinkedHashMap<Path, RSyntaxTextArea> remappedEditors = new LinkedHashMap<>();
+        for (Map.Entry<Path, RSyntaxTextArea> entry : openEditors.entrySet()) {
+            remappedEditors.put(remapPathPrefix(entry.getKey(), oldRoot, newRoot), entry.getValue());
+        }
+        openEditors.clear();
+        openEditors.putAll(remappedEditors);
+
+        LinkedHashMap<Path, RTextScrollPane> remappedScrollPanes = new LinkedHashMap<>();
+        for (Map.Entry<Path, RTextScrollPane> entry : openScrollPanes.entrySet()) {
+            remappedScrollPanes.put(remapPathPrefix(entry.getKey(), oldRoot, newRoot), entry.getValue());
+        }
+        openScrollPanes.clear();
+        openScrollPanes.putAll(remappedScrollPanes);
+
+        for (Map.Entry<Component, Path> entry : tabToPath.entrySet()) {
+            Path remappedPath = remapPathPrefix(entry.getValue(), oldRoot, newRoot);
+            entry.setValue(remappedPath);
+            updateTabMetadata(entry.getKey(), remappedPath);
+        }
+    }
+
+    private void remapDiagnosticsReferences(Path oldRoot, Path newRoot) {
+        LinkedHashMap<Path, List<LuciaDiagnostic>> remappedDiagnostics = new LinkedHashMap<>();
+        List<Path> affectedOldPaths = new ArrayList<>();
+
+        for (Map.Entry<Path, List<LuciaDiagnostic>> entry : diagnosticsByFile.entrySet()) {
+            Path currentPath = entry.getKey();
+            Path remappedPath = remapPathPrefix(currentPath, oldRoot, newRoot);
+            remappedDiagnostics.put(remappedPath, entry.getValue());
+            if (!currentPath.equals(remappedPath)) {
+                affectedOldPaths.add(currentPath);
+            }
+        }
+
+        diagnosticsByFile.clear();
+        diagnosticsByFile.putAll(remappedDiagnostics);
+
+        for (Path oldPath : affectedOldPaths) {
+            diagnosticsService.clear(oldPath);
+            problemsPanel.clearFile(oldPath);
+        }
+        for (Map.Entry<Path, List<LuciaDiagnostic>> entry : diagnosticsByFile.entrySet()) {
+            if (entry.getKey().startsWith(newRoot)) {
+                problemsPanel.setDiagnostics(entry.getKey(), entry.getValue());
+                RSyntaxTextArea editor = openEditors.get(entry.getKey());
+                if (editor != null) {
+                    requestDiagnostics(entry.getKey(), editor);
+                }
+            }
+        }
+        updateProblemsTabTitle();
+    }
+
+    private void clearDiagnosticsUnder(Path root) {
+        List<Path> pathsToClear = new ArrayList<>();
+        for (Path path : diagnosticsByFile.keySet()) {
+            if (path.startsWith(root)) {
+                pathsToClear.add(path);
+            }
+        }
+        for (Path path : pathsToClear) {
+            clearDiagnosticsFor(path);
+        }
+    }
+
+    private Path remapPathPrefix(Path candidate, Path oldRoot, Path newRoot) {
+        if (candidate == null) {
+            return null;
+        }
+        Path normalized = candidate.toAbsolutePath().normalize();
+        if (!normalized.startsWith(oldRoot)) {
+            return normalized;
+        }
+        if (normalized.equals(oldRoot)) {
+            return newRoot;
+        }
+        return newRoot.resolve(oldRoot.relativize(normalized)).toAbsolutePath().normalize();
+    }
+
+    private void updateTabMetadata(Component tabContent, Path path) {
+        int index = editorTabs.indexOfComponent(tabContent);
+        if (index < 0 || path == null) {
+            return;
+        }
+        String tabTitle = path.getFileName().toString();
+        editorTabs.setTitleAt(index, tabTitle);
+        editorTabs.setToolTipTextAt(index, path.toString());
+        editorTabs.setTabComponentAt(index,
+                new ClosableTabHeader(editorTabs, tabTitle, () -> closeTab(tabContent)));
     }
 
     private void selectTabByPath(Path path) {
