@@ -8,6 +8,11 @@
 
 Lucia Editor is a desktop IDE-style editor for Lucia language projects, built with Java Swing.
 
+Lucia Editor is currently focused on educational environments, helping students and instructors
+work with Lucia in classroom and training contexts.
+Its long-term direction is to evolve into a more robust tooling experience that can also support
+professional workflows.
+
 ## Highlights
 
 - 📁 Project explorer for `.lucia` files and folders.
