@@ -6,6 +6,8 @@
 	<img src="src/main/resources/lucia-editor.png" alt="Lucia Editor Logo" width="120" />
 </p>
 
+Lucia Editor is the official open source editor project maintained by Gabriel González.
+
 Lucia Editor is a desktop IDE-style editor for Lucia language projects, built with Java Swing.
 
 Lucia Editor is currently focused on educational environments, helping students and instructors
@@ -204,6 +206,19 @@ With run/compile target configuration enabled, the editor also forwards the sele
 ```bash
 <python_executable> main.py run <current_file> --target <python|javascript>
 ```
+
+## Legal and Project Identity
+
+Lucia Editor is the official project name of this editor.
+
+The source code in this repository is licensed under the Mozilla Public License 2.0 (MPL-2.0). See the `LICENSE` file for details.
+
+The names "Lucia" and "Lucia Editor", along with associated logos, icons, and branding, are not licensed under the MPL-2.0. Their use is subject to the terms described in `TRADEMARKS.md`.
+
+Forks and modified versions are permitted under the project license, but they must not be presented as the official Lucia Editor project unless prior written permission has been granted by the project owner.
+
+Official project maintainer:
+Gabriel González
 
 ## Add More UI Languages
 
