@@ -1,0 +1,19 @@
+# id|title|summary|keywords|file|related
+getting-started|Inicio en 5 minutos|Ruta rapida para abrir proyecto, escribir codigo, ejecutar y leer diagnosticos.|inicio,primeros pasos,onboarding,proyecto|getting-started.md|language-overview,run-compile,diagnostics
+language-overview|Mapa del lenguaje Lucia|Mapa completo de caracteristicas de Lucia y donde profundizar cada tema.|lenguaje,caracteristicas,resumen,mapa|language-overview.md|syntax-control-flow,types-and-collections,operators-and-expressions,declarations-let-const
+syntax-control-flow|Sintaxis y flujo de control|if/else, switch/case, ciclos, break/continue, return, try/catch/finally.|sintaxis,if,switch,while,for,do while,for in,try,catch,finally|syntax-control-flow.md|operators-and-expressions,diagnostics
+declarations-let-const|Declaraciones con let y const|Reglas para declarar variables mutables e inmutables.|let,const,declaracion,alcance|declarations-let-const.md|types-and-collections,diagnostics
+types-and-collections|Tipos y colecciones|Tipos base de Lucia mas literales/acceso de list y dict.|tipos,int,float,string,bool,list,dict,date,datetime|types-and-collections.md|functions-and-builtins,methods-and-chaining
+operators-and-expressions|Operadores y expresiones|Aritmeticos, asignacion, comparacion, logicos, ternario y null coalescing.|operadores,asignacion,comparacion,logicos,ternario,null coalescing|operators-and-expressions.md|syntax-control-flow,string-interpolation
+functions-and-builtins|Funciones y built-ins|Definicion de funciones, retorno y funciones globales del lenguaje.|funciones,return,builtins,print,len,input|functions-and-builtins.md|methods-and-chaining,builtins-math-date
+builtins-math-date|Built-ins de matematica y fecha|Ayudas numericas y temporales: random, date, datetime, today, now.|matematica,fecha,datetime,random,sqrt,sin,cos,tan,log|builtins-math-date.md|functions-and-builtins,types-and-collections
+methods-and-chaining|Metodos y chaining en string/list/dict|Metodos integrados y encadenamiento para expresiones limpias.|metodos,string,list,dict,chaining|methods-and-chaining.md|functions-and-builtins,string-interpolation
+oop-and-modules|Clases, herencia e imports|class, extends, constructor, this, metodos e import entre archivos.|class,extends,constructor,this,import,module|oop-and-modules.md|declarations-let-const,diagnostics
+string-interpolation|Interpolacion de strings|Construccion de textos dinamicos con ${expr}.|interpolacion,string,plantillas|string-interpolation.md|operators-and-expressions,methods-and-chaining
+run-compile|Flujo de ejecutar y compilar|Comandos de run/compile, targets, opciones de salida y depuracion.|ejecutar,compilar,target,save,out,debug,tests|run-compile.md|diagnostics,getting-started
+diagnostics|Diagnosticos y errores semanticos|Interpretar diagnosticos de sintaxis/semantica y decidir siguiente accion.|diagnosticos,errores,advertencias,semantica,sintaxis|diagnostics.md|syntax-control-flow,declarations-let-const,oop-and-modules
+editor-basics|Fundamentos del editor|Pestanas, estrategia de guardado, formato, busqueda y navegacion.|editor,pestanas,guardar,formato,busqueda,definicion,referencias|editor-basics.md|shortcuts,snippets
+project-explorer|Guia del arbol de proyecto|Crear/mover/duplicar/eliminar rutas y ejecutar desde el arbol.|arbol,proyecto,carpetas,copiar,cortar,pegar,duplicar|project-explorer.md|run-compile,editor-basics
+shortcuts|Atajos de teclado|Atajos de mayor impacto para productividad en clase y practica.|atajos,teclado,hotkeys|shortcuts.md|editor-basics,project-explorer,diagnostics
+snippets|Gestor de snippets|Crear y mantener plantillas para escribir codigo mas rapido.|snippets,plantillas,autocomplete|snippets.md|editor-basics,shortcuts
+faq|FAQ y resolucion de problemas|Problemas frecuentes de configuracion y flujo con solucion concreta.|faq,problemas,configuracion,soporte|faq.md|run-compile,diagnostics,getting-started

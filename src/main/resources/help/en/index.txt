@@ -1,0 +1,19 @@
+# id|title|summary|keywords|file|related
+getting-started|Getting started in 5 minutes|Quick onboarding path to open a project, write code, run, and read diagnostics.|start,quickstart,onboarding,first steps|getting-started.md|language-overview,run-compile,diagnostics
+language-overview|Lucia language overview|Complete map of Lucia features and where to learn each one.|language,features,overview,roadmap|language-overview.md|syntax-control-flow,types-and-collections,operators-and-expressions,declarations-let-const
+syntax-control-flow|Syntax and control flow|if/else, switch/case, loops, break/continue, return, try/catch/finally.|syntax,if,switch,while,for,do while,for in,try,catch,finally|syntax-control-flow.md|operators-and-expressions,diagnostics
+declarations-let-const|Declarations with let and const|Variable declaration rules and immutable values with const.|let,const,declaration,scope|declarations-let-const.md|types-and-collections,diagnostics
+types-and-collections|Types and collections|Core Lucia types plus list/dict literals, access, and indexing.|types,int,float,string,bool,list,dict,date,datetime|types-and-collections.md|functions-and-builtins,methods-and-chaining
+operators-and-expressions|Operators and expressions|Arithmetic, assignment, comparison, logical, ternary, and null coalescing.|operators,assignment,comparison,logical,ternary,null coalescing|operators-and-expressions.md|syntax-control-flow,string-interpolation
+functions-and-builtins|Functions and built-ins|Function definitions, return behavior, and global built-in functions.|functions,return,builtins,print,len,input|functions-and-builtins.md|methods-and-chaining,builtins-math-date
+builtins-math-date|Math, date, and datetime built-ins|Numeric and temporal helpers including random, date, datetime, today, now.|math,date,datetime,random,sqrt,sin,cos,tan,log|builtins-math-date.md|functions-and-builtins,types-and-collections
+methods-and-chaining|String/list/dict methods and chaining|Built-in methods and chaining patterns for cleaner expressions.|string methods,list methods,dict methods,chaining|methods-and-chaining.md|functions-and-builtins,string-interpolation
+oop-and-modules|Classes, inheritance, and imports|class, extends, constructor, this, methods, and import statements.|class,extends,constructor,this,import,module|oop-and-modules.md|declarations-let-const,diagnostics
+string-interpolation|String interpolation|How to build readable dynamic strings with ${expr}.|interpolation,string,template|string-interpolation.md|operators-and-expressions,methods-and-chaining
+run-compile|Run and compile workflows|Run/compile commands, targets, output options, and classroom flow.|run,compile,target,save,out,debug,tests|run-compile.md|diagnostics,getting-started
+diagnostics|Diagnostics and semantic errors|Interpret syntax/semantic diagnostics and choose the next action.|diagnostics,errors,warnings,semantic,syntax|diagnostics.md|syntax-control-flow,declarations-let-const,oop-and-modules
+editor-basics|Editor basics|Tabs, save strategy, formatting, search, and symbol navigation.|editor,tabs,save,format,find,definition,references|editor-basics.md|shortcuts,snippets
+project-explorer|Project explorer guide|Create/move/duplicate/delete files and run from the tree.|tree,project,folders,copy,cut,paste,duplicate|project-explorer.md|run-compile,editor-basics
+shortcuts|Keyboard shortcuts|High-value shortcuts for productivity in class and practice.|shortcuts,keyboard,hotkeys|shortcuts.md|editor-basics,project-explorer,diagnostics
+snippets|Snippet manager|Create and maintain snippet templates for fast code writing.|snippets,templates,autocomplete|snippets.md|editor-basics,shortcuts
+faq|FAQ and troubleshooting|Common setup and language workflow issues with concrete fixes.|faq,troubleshooting,setup,issues|faq.md|run-compile,diagnostics,getting-started
