@@ -9,6 +9,8 @@ package com.lucia.editor.ui;
 
 import com.lucia.editor.config.EditorConfig;
 import com.lucia.editor.format.LuciaFormatter;
+import com.lucia.editor.help.HelpDialog;
+import com.lucia.editor.help.HelpService;
 import com.lucia.editor.i18n.I18n;
 import com.lucia.editor.snippets.SnippetDefinition;
 import com.lucia.editor.snippets.SnippetManager;
@@ -22,6 +24,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.event.ActionEvent;
@@ -91,6 +94,8 @@ public class MainFrame extends JFrame {
     private final SnippetManager snippetManager;
     private final LuciaDiagnosticsService diagnosticsService;
     private GlobalSearchDialog globalSearchDialog;
+    private HelpService helpService;
+    private HelpDialog helpDialog;
 
     private Path projectRoot;
     private Path currentFile;
@@ -172,6 +177,7 @@ public class MainFrame extends JFrame {
         this.diagnosticsUnderlineRows = config.getDiagnosticsUnderlineRows();
 
         I18n.setLocale(Locale.forLanguageTag(config.getLanguageTag()));
+        this.helpService = new HelpService(I18n.getLocale());
         editorFactory.setAutocompleteEnabled(config.isAutocompleteEnabled());
         editorFactory.setAutocompleteDelayMs(config.getAutocompleteDelayMs());
         editorFactory.setSnippetsInAutocomplete(config.isSnippetsInAutocomplete());
@@ -225,7 +231,9 @@ public class MainFrame extends JFrame {
         outputPanel.add(new JScrollPane(output), BorderLayout.CENTER);
         outputPanel.add(inputBar, BorderLayout.SOUTH);
 
-        problemsPanel = new ProblemsPanel(this::openProblem, this::applyQuickFixFromProblem);
+        problemsPanel = new ProblemsPanel(this::openProblem,
+            this::applyQuickFixFromProblem,
+            this::openHelpForProblem);
         problemsPanel.setDarkTheme(darkTheme);
 
         bottomTabs = new JTabbedPane(JTabbedPane.BOTTOM);
@@ -354,6 +362,14 @@ public class MainFrame extends JFrame {
         rootInputMap.put(KeyStroke.getKeyStroke("control PERIOD"), "quickFix");
         rootActionMap.put("quickFix", new AbstractAction() {
             @Override public void actionPerformed(ActionEvent e) { triggerQuickFix(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("F1"), "contextHelp");
+        rootActionMap.put("contextHelp", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { openContextHelp(); }
+        });
+        rootInputMap.put(KeyStroke.getKeyStroke("shift F1"), "helpCenter");
+        rootActionMap.put("helpCenter", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) { openHelpCenter(); }
         });
     }
 
@@ -536,6 +552,15 @@ public class MainFrame extends JFrame {
         languageMenu.add(english);
 
         JMenu helpMenu = new JMenu(I18n.tr("menu.help"));
+        JMenuItem contextHelpItem = createMenuItem("menu.contextHelp", FontAwesomeSolid.LIFE_RING,
+            this::openContextHelp);
+        contextHelpItem.setAccelerator(KeyStroke.getKeyStroke("F1"));
+        JMenuItem helpCenterItem = createMenuItem("menu.helpCenter", FontAwesomeSolid.BOOK,
+            this::openHelpCenter);
+        helpCenterItem.setAccelerator(KeyStroke.getKeyStroke("shift F1"));
+        helpMenu.add(contextHelpItem);
+        helpMenu.add(helpCenterItem);
+        helpMenu.addSeparator();
         helpMenu.add(createMenuItem("menu.about", FontAwesomeSolid.INFO_CIRCLE,
                 () -> AboutDialog.show(this, darkTheme)));
 
@@ -928,6 +953,45 @@ public class MainFrame extends JFrame {
 
         appendOutput(I18n.tr("log.quickFixNotAvailable"));
         openProblem(entry);
+    }
+
+    private void openHelpForProblem(ProblemsPanel.ProblemEntry entry) {
+        if (entry == null) {
+            return;
+        }
+        openHelpTopic(resolveHelpTopicForDiagnostic(entry.diagnostic()));
+    }
+
+    private String resolveHelpTopicForDiagnostic(LuciaDiagnostic diagnostic) {
+        if (diagnostic == null) {
+            return "diagnostics";
+        }
+        String msg = diagnostic.message().toLowerCase(Locale.ROOT);
+        if (msg.contains("undeclared variable") || msg.contains("redecl")
+                || msg.contains("let") || msg.contains("const")) {
+            return "declarations-let-const";
+        }
+        if (msg.contains("import") || msg.contains("module") || msg.contains("cyclic")) {
+            return "oop-and-modules";
+        }
+        if (msg.contains("unknown function") || msg.contains("argument")
+                || msg.contains("callable") || msg.contains("return")) {
+            return "functions-and-builtins";
+        }
+        if (msg.contains("class") || msg.contains("constructor")
+                || msg.contains("extends") || msg.contains("this")) {
+            return "oop-and-modules";
+        }
+        if (msg.contains("list") || msg.contains("dict") || msg.contains("index")) {
+            return "types-and-collections";
+        }
+        if (msg.contains("type") || msg.contains("assignment") || msg.contains("mismatch")) {
+            return "types-and-collections";
+        }
+        if (msg.contains("syntax") || msg.contains("expected") || msg.contains("line")) {
+            return "syntax-control-flow";
+        }
+        return "diagnostics";
     }
 
     private void insertTextAtLineStart(RSyntaxTextArea editor, int line, String text) {
@@ -1507,6 +1571,9 @@ public class MainFrame extends JFrame {
             editorFactory.applyFontSize(editor);
         });
         searchSupport.refreshUi();
+        if (helpDialog != null) {
+            helpDialog.setDarkTheme(dark);
+        }
         refreshTexts();
         projectTreePanel.getTree().setCellRenderer(new FileTreeCellRenderer());
         SwingUtilities.updateComponentTreeUI(projectTreePanel.getTree());
@@ -1515,8 +1582,58 @@ public class MainFrame extends JFrame {
     private void changeLanguage(Locale locale) {
         I18n.setLocale(locale);
         config.setLanguageTag(locale.toLanguageTag());
+        this.helpService = new HelpService(I18n.getLocale());
+        if (helpDialog != null) {
+            helpDialog.dispose();
+            helpDialog = null;
+        }
         searchSupport.resetDialogs();
         refreshTexts();
+    }
+
+    private void openHelpCenter() {
+        openHelpTopic("getting-started");
+    }
+
+    private void openContextHelp() {
+        openHelpTopic(resolveHelpTopicFromFocus());
+    }
+
+    private void openHelpTopic(String articleId) {
+        if (helpService == null || !helpService.language().equals(I18n.getLocale().getLanguage())) {
+            helpService = new HelpService(I18n.getLocale());
+        }
+        if (helpDialog == null || !helpDialog.isDisplayable()) {
+            helpDialog = new HelpDialog(this, helpService, darkTheme);
+        } else {
+            helpDialog.setService(helpService);
+            helpDialog.setDarkTheme(darkTheme);
+            helpDialog.refreshTexts();
+        }
+        helpDialog.openArticle(articleId);
+    }
+
+    private String resolveHelpTopicFromFocus() {
+        Component focus = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+        if (focus == null) {
+            return "getting-started";
+        }
+        if (SwingUtilities.isDescendingFrom(focus, projectTreePanel.getTree())) {
+            return "project-explorer";
+        }
+        if (SwingUtilities.isDescendingFrom(focus, problemsPanel)) {
+            return "diagnostics";
+        }
+        if (SwingUtilities.isDescendingFrom(focus, terminalPanel)
+                || SwingUtilities.isDescendingFrom(focus, output)
+                || SwingUtilities.isDescendingFrom(focus, inputField)) {
+            return "run-compile";
+        }
+        RSyntaxTextArea editor = getCurrentEditor();
+        if (editor != null && SwingUtilities.isDescendingFrom(focus, editor)) {
+            return "editor-basics";
+        }
+        return "getting-started";
     }
 
     private void refreshTexts() {

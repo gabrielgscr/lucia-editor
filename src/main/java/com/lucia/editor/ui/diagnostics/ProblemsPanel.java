@@ -57,6 +57,7 @@ public class ProblemsPanel extends JPanel {
 
     private final Consumer<ProblemEntry> onOpen;
     private final Consumer<ProblemEntry> onQuickFix;
+    private final Consumer<ProblemEntry> onHelp;
     private final DefaultListModel<ProblemEntry> model;
     private final JList<ProblemEntry> list;
     private final Map<Path, List<LuciaDiagnostic>> diagnosticsByFile;
@@ -67,10 +68,13 @@ public class ProblemsPanel extends JPanel {
         list.repaint();
     }
 
-    public ProblemsPanel(Consumer<ProblemEntry> onOpen, Consumer<ProblemEntry> onQuickFix) {
+    public ProblemsPanel(Consumer<ProblemEntry> onOpen,
+                         Consumer<ProblemEntry> onQuickFix,
+                         Consumer<ProblemEntry> onHelp) {
         super(new BorderLayout());
         this.onOpen = onOpen;
         this.onQuickFix = onQuickFix;
+        this.onHelp = onHelp;
         this.model = new DefaultListModel<>();
         this.list = new JList<>(model);
         this.diagnosticsByFile = new LinkedHashMap<>();
@@ -104,8 +108,11 @@ public class ProblemsPanel extends JPanel {
         openItem.addActionListener(e -> openSelected());
         JMenuItem quickFixItem = new JMenuItem(I18n.tr("problems.quickFix"));
         quickFixItem.addActionListener(e -> runQuickFixSelected());
+        JMenuItem helpItem = new JMenuItem(I18n.tr("problems.help"));
+        helpItem.addActionListener(e -> openHelpSelected());
         popup.add(openItem);
         popup.add(quickFixItem);
+        popup.add(helpItem);
 
         list.addMouseListener(new MouseAdapter() {
             @Override
@@ -136,6 +143,13 @@ public class ProblemsPanel extends JPanel {
             @Override
             public void actionPerformed(java.awt.event.ActionEvent e) {
                 runQuickFixSelected();
+            }
+        });
+        list.getInputMap().put(KeyStroke.getKeyStroke("F1"), "helpProblem");
+        list.getActionMap().put("helpProblem", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                openHelpSelected();
             }
         });
     }
@@ -204,6 +218,13 @@ public class ProblemsPanel extends JPanel {
         ProblemEntry selected = list.getSelectedValue();
         if (selected != null) {
             onQuickFix.accept(selected);
+        }
+    }
+
+    private void openHelpSelected() {
+        ProblemEntry selected = list.getSelectedValue();
+        if (selected != null) {
+            onHelp.accept(selected);
         }
     }
 
